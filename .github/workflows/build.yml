@@ -1,4 +1,4 @@
-name: Build protocol
+name: Build instrument processor
 
 on:
   push:
