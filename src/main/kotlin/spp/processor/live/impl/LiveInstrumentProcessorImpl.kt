@@ -121,8 +121,9 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentProcessor
 
         val values = mutableListOf<Long>()
         services.forEach { service ->
-            val instances =
-                metadata.getServiceInstances(start.toEpochMilliseconds(), stop.toEpochMilliseconds(), service.id)
+            val instances = metadata.getServiceInstances(
+                start.toEpochMilliseconds(), stop.toEpochMilliseconds(), service.id
+            )
             if (instances.isEmpty()) {
                 log.info("No instances found for service: ${service.id}")
                 return@forEach
@@ -135,7 +136,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentProcessor
                 }
 
                 val condition = MetricsCondition().apply {
-                    name = "spp_" + liveMeter.meterType.name.lowercase() + "_" + liveMeter.id!!.replace("-", "_")
+                    name = liveMeter.toMetricId()
                     entity = Entity().apply {
                         setScope(Scope.ServiceInstance)
                         setNormal(true)

@@ -15,6 +15,7 @@ import spp.processor.InstrumentProcessor
 import spp.processor.live.LiveViewProcessor
 import spp.processor.live.impl.view.LiveActivityView
 import spp.processor.live.impl.view.LiveLogsView
+import spp.processor.live.impl.view.LiveMeterView
 import spp.processor.live.impl.view.LiveTracesView
 import spp.processor.live.impl.view.util.EntitySubscribersCache
 import spp.processor.live.impl.view.util.MetricTypeSubscriptionCache
@@ -31,6 +32,7 @@ class LiveViewProcessorImpl : CoroutineVerticle(), LiveViewProcessor {
 
     private var eventPublishRateLimit = 1000 //todo: set as global min limit
     private val subscriptionCache = MetricTypeSubscriptionCache()
+    val meterView = LiveMeterView(subscriptionCache)
     val activityView = LiveActivityView(subscriptionCache)
     val tracesView = LiveTracesView(subscriptionCache)
     val logsView = LiveLogsView(subscriptionCache)

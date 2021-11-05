@@ -31,8 +31,10 @@ class LiveViewProcessorProvider : ModuleProvider() {
     override fun createConfigBeanIfAbsent(): ModuleConfig? = null
     override fun prepare() {
         //todo: metrics/trace/logs view. should cover user defined as well
-        //live activity view
-        registerServiceImplementation(MetricValuesExportService::class.java, liveViewProcessor.activityView)
+        registerServiceImplementation(MetricValuesExportService::class.java, MetricValuesExportService {
+            liveViewProcessor.activityView.export(it)
+            liveViewProcessor.meterView.export(it)
+        })
     }
 
     override fun start() {
