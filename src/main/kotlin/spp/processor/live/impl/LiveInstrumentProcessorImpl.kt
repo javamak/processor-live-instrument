@@ -1,12 +1,16 @@
 package spp.processor.live.impl
 
+import com.sourceplusplus.protocol.instrument.DurationStep
 import com.sourceplusplus.protocol.instrument.meter.LiveMeter
 import com.sourceplusplus.protocol.instrument.meter.MeterType
 import io.vertx.core.AsyncResult
 import io.vertx.core.Future
 import io.vertx.core.Handler
+import io.vertx.core.json.JsonArray
 import io.vertx.core.json.JsonObject
 import io.vertx.kotlin.coroutines.CoroutineVerticle
+import kotlinx.datetime.Instant
+import kotlinx.datetime.toJavaInstant
 import org.apache.skywalking.oap.meter.analyzer.MetricConvert
 import org.apache.skywalking.oap.server.analyzer.module.AnalyzerModule
 import org.apache.skywalking.oap.server.analyzer.provider.meter.config.MeterConfig
@@ -14,12 +18,22 @@ import org.apache.skywalking.oap.server.analyzer.provider.meter.process.IMeterPr
 import org.apache.skywalking.oap.server.analyzer.provider.meter.process.MeterProcessService
 import org.apache.skywalking.oap.server.core.CoreModule
 import org.apache.skywalking.oap.server.core.analysis.meter.MeterSystem
+import org.apache.skywalking.oap.server.core.query.MetricsQueryService
+import org.apache.skywalking.oap.server.core.query.enumeration.Scope
+import org.apache.skywalking.oap.server.core.query.enumeration.Step
+import org.apache.skywalking.oap.server.core.query.input.Duration
+import org.apache.skywalking.oap.server.core.query.input.Entity
+import org.apache.skywalking.oap.server.core.query.input.MetricsCondition
 import org.apache.skywalking.oap.server.core.storage.StorageModule
 import org.apache.skywalking.oap.server.core.storage.query.ILogQueryDAO
+import org.apache.skywalking.oap.server.core.storage.query.IMetadataQueryDAO
 import org.apache.skywalking.oap.server.storage.plugin.elasticsearch.base.EsDAO
+import org.joor.Reflect
 import org.slf4j.LoggerFactory
 import spp.processor.InstrumentProcessor
 import spp.processor.live.LiveInstrumentProcessor
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
 
 class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentProcessor {
 
@@ -28,11 +42,24 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentProcessor
     }
 
     private lateinit var elasticSearch: EsDAO
+    private lateinit var metricsQueryService: MetricsQueryService
+    private lateinit var metadata: IMetadataQueryDAO
+    private lateinit var meterSystem: MeterSystem
+    private lateinit var meterProcessService: MeterProcessService
 
     override suspend fun start() {
         log.info("Starting LiveInstrumentProcessorImpl")
-        elasticSearch = InstrumentProcessor.module!!.find(StorageModule.NAME).provider()
-            .getService(ILogQueryDAO::class.java) as EsDAO
+        InstrumentProcessor.module!!.find(StorageModule.NAME).provider().apply {
+            elasticSearch = getService(ILogQueryDAO::class.java) as EsDAO
+            metadata = getService(IMetadataQueryDAO::class.java)
+        }
+        InstrumentProcessor.module!!.find(CoreModule.NAME).provider().apply {
+            metricsQueryService = getService(MetricsQueryService::class.java)
+            meterSystem = getService(MeterSystem::class.java)
+        }
+        InstrumentProcessor.module!!.find(AnalyzerModule.NAME).provider().apply {
+            meterProcessService = getService(IMeterProcessService::class.java) as MeterProcessService
+        }
     }
 
     override suspend fun stop() {
@@ -48,7 +75,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentProcessor
                     MeterConfig.Rule().apply {
                         val idVariable = "counter_" + liveMeter.id!!.replace("-", "_")
                         name = idVariable
-                        exp = "($idVariable.sum(['service', 'instance'])).instance(['service'], ['instance'])"
+                        exp = "($idVariable.sum(['service', 'instance']).downsampling(SUM)).instance(['service'], ['instance'])"
                     }
                 )
             }
@@ -74,11 +101,64 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentProcessor
             }
             else -> throw UnsupportedOperationException("Unsupported meter type: ${liveMeter.meterType}")
         }
-
-        val meterSystem = InstrumentProcessor.module!!.find(CoreModule.NAME).provider().getService(MeterSystem::class.java)
-        val service = InstrumentProcessor.module!!.find(AnalyzerModule.NAME).provider()
-            .getService(IMeterProcessService::class.java) as MeterProcessService
-        service.converts().add(MetricConvert(meterConfig, meterSystem))
+        meterProcessService.converts().add(MetricConvert(meterConfig, meterSystem))
         handler.handle(Future.succeededFuture(JsonObject()))
+    }
+
+    override fun getLiveMeterMetrics(
+        liveMeter: LiveMeter,
+        start: Instant,
+        stop: Instant,
+        step: String,
+        handler: Handler<AsyncResult<JsonObject>>
+    ) {
+        val services = metadata.getAllServices(liveMeter.location.service ?: "")
+        if (services.isEmpty()) {
+            log.info("No services found")
+            handler.handle(Future.succeededFuture(JsonObject().put("values", JsonArray())))
+            return
+        }
+
+        val values = mutableListOf<Long>()
+        services.forEach { service ->
+            val instances =
+                metadata.getServiceInstances(start.toEpochMilliseconds(), stop.toEpochMilliseconds(), service.id)
+            if (instances.isEmpty()) {
+                log.info("No instances found for service: ${service.id}")
+                return@forEach
+            }
+
+            instances.forEach { instance ->
+                val serviceInstance = liveMeter.location.serviceInstance
+                if (serviceInstance != null && serviceInstance != instance.name) {
+                    return@forEach
+                }
+
+                val condition = MetricsCondition().apply {
+                    name = "spp_" + liveMeter.meterType.name.lowercase() + "_" + liveMeter.id!!.replace("-", "_")
+                    entity = Entity().apply {
+                        setScope(Scope.ServiceInstance)
+                        setNormal(true)
+                        setServiceName(service.name)
+                        setServiceInstanceName(instance.name)
+                    }
+                }
+                val value = metricsQueryService.readMetricsValue(condition, Duration().apply {
+                    Reflect.on(this).set(
+                        "start",
+                        DateTimeFormatter.ofPattern(DurationStep.MINUTE.pattern).withZone(ZoneOffset.UTC)
+                            .format(start.toJavaInstant())
+                    )
+                    Reflect.on(this).set(
+                        "end",
+                        DateTimeFormatter.ofPattern(DurationStep.MINUTE.pattern).withZone(ZoneOffset.UTC)
+                            .format(stop.toJavaInstant())
+                    )
+                    Reflect.on(this).set("step", Step.MINUTE)
+                })
+                values.add(value)
+            }
+        }
+        handler.handle(Future.succeededFuture(JsonObject().put("values", JsonArray(values))))
     }
 }

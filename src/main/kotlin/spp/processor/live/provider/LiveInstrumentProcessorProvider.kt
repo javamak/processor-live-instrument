@@ -7,12 +7,12 @@ import org.apache.skywalking.oap.server.analyzer.module.AnalyzerModule
 import org.apache.skywalking.oap.server.analyzer.provider.trace.parser.ISegmentParserService
 import org.apache.skywalking.oap.server.analyzer.provider.trace.parser.SegmentParserListenerManager
 import org.apache.skywalking.oap.server.analyzer.provider.trace.parser.SegmentParserServiceImpl
+import org.apache.skywalking.oap.server.core.CoreModule
 import org.apache.skywalking.oap.server.core.storage.StorageModule
 import org.apache.skywalking.oap.server.core.storage.query.ILogQueryDAO
 import org.apache.skywalking.oap.server.library.module.ModuleConfig
 import org.apache.skywalking.oap.server.library.module.ModuleDefine
 import org.apache.skywalking.oap.server.library.module.ModuleProvider
-import org.apache.skywalking.oap.server.receiver.sharing.server.SharingServerModule
 import org.apache.skywalking.oap.server.storage.plugin.elasticsearch.base.EsDAO
 import org.slf4j.LoggerFactory
 import spp.processor.InstrumentProcessor
@@ -60,8 +60,10 @@ class LiveInstrumentProcessorProvider : ModuleProvider() {
     override fun notifyAfterCompleted() = Unit
     override fun requiredModules(): Array<String> {
         return arrayOf(
+            CoreModule.NAME,
+            AnalyzerModule.NAME,
             StorageModule.NAME,
-            SharingServerModule.NAME
+            LogAnalyzerModule.NAME,
         )
     }
 }

@@ -14,6 +14,7 @@ val sourceMarkerVersion: String by project
 val protocolVersion: String by project
 val jacksonVersion: String by project
 val kotlinVersion: String by project
+val joorVersion: String by project
 
 group = processorGroup
 version = instrumentProcessorVersion
@@ -28,6 +29,7 @@ repositories {
 dependencies {
     implementation("com.github.sourceplusplus.protocol:protocol:$protocolVersion")
     implementation("org.jetbrains.kotlin:kotlin-reflect:$kotlinVersion")
+    implementation("org.jooq:joor:$joorVersion")
     compileOnly("org.apache.skywalking:apm-network:$skywalkingVersion") { isTransitive = false }
     compileOnly("org.apache.skywalking:library-server:$skywalkingVersion") { isTransitive = false }
     compileOnly("org.apache.skywalking:library-module:$skywalkingVersion") { isTransitive = false }
