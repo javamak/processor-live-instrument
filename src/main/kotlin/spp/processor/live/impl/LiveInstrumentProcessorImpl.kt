@@ -46,7 +46,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentProcessor
                 meterConfig.metricPrefix = "spp"
                 meterConfig.metricsRules = mutableListOf(
                     MeterConfig.Rule().apply {
-                        val idVariable = "meter_" + liveMeter.id!!.replace("-", "_")
+                        val idVariable = "counter_" + liveMeter.id!!.replace("-", "_")
                         name = idVariable
                         exp = "($idVariable.sum(['service', 'instance'])).instance(['service'], ['instance'])"
                     }
