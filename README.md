@@ -1,4 +1,4 @@
-# ![](.github/media/sourcepp_logo.svg)
+# ![](https://github.com/sourceplusplus/live-platform/blob/master/.github/media/sourcepp_logo.svg)
 
 [![License](https://img.shields.io/github/license/sourceplusplus/processor-instrument)](LICENSE)
 ![GitHub release](https://img.shields.io/github/v/release/sourceplusplus/processor-instrument?include_prereleases)
