@@ -10,6 +10,8 @@ The project provides additional backend processing to the [Source++](https://git
 
 # Features
 
+Introduces **Live Instruments**, ephemeral production debugging devices for live applications. Live Instruments come in a number of types described below.
+
 ## Live Instruments
 
 ### Live Breakpoint
