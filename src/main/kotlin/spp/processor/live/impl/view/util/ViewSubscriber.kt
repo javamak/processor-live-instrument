@@ -1,6 +1,6 @@
 package spp.processor.live.impl.view.util
 
-import com.sourceplusplus.protocol.view.LiveViewSubscription
+import spp.protocol.view.LiveViewSubscription
 import io.vertx.core.eventbus.MessageConsumer
 import io.vertx.core.json.JsonObject
 import org.apache.skywalking.oap.server.core.exporter.ExportEvent

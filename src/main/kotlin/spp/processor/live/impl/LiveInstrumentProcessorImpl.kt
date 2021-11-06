@@ -1,8 +1,8 @@
 package spp.processor.live.impl
 
-import com.sourceplusplus.protocol.instrument.DurationStep
-import com.sourceplusplus.protocol.instrument.meter.LiveMeter
-import com.sourceplusplus.protocol.instrument.meter.MeterType
+import spp.protocol.instrument.DurationStep
+import spp.protocol.instrument.meter.LiveMeter
+import spp.protocol.instrument.meter.MeterType
 import io.vertx.core.AsyncResult
 import io.vertx.core.Future
 import io.vertx.core.Handler

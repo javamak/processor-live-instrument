@@ -1,9 +1,9 @@
 package spp.processor.live.impl.view
 
-import com.sourceplusplus.protocol.artifact.trace.Trace
-import com.sourceplusplus.protocol.artifact.trace.TraceSpan
-import com.sourceplusplus.protocol.artifact.trace.TraceSpanLogEntry
-import com.sourceplusplus.protocol.artifact.trace.TraceSpanRef
+import spp.protocol.artifact.trace.Trace
+import spp.protocol.artifact.trace.TraceSpan
+import spp.protocol.artifact.trace.TraceSpanLogEntry
+import spp.protocol.artifact.trace.TraceSpanRef
 import io.vertx.core.json.Json
 import io.vertx.core.json.JsonObject
 import kotlinx.datetime.toJavaInstant

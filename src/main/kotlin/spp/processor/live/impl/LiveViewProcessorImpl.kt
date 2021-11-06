@@ -1,6 +1,6 @@
 package spp.processor.live.impl
 
-import com.sourceplusplus.protocol.view.LiveViewSubscription
+import spp.protocol.view.LiveViewSubscription
 import io.vertx.core.AsyncResult
 import io.vertx.core.Future
 import io.vertx.core.Handler

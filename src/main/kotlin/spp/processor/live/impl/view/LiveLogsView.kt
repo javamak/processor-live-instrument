@@ -1,7 +1,7 @@
 package spp.processor.live.impl.view
 
 import com.google.protobuf.Message
-import com.sourceplusplus.protocol.artifact.log.Log
+import spp.protocol.artifact.log.Log
 import io.vertx.core.json.JsonObject
 import kotlinx.datetime.toJavaInstant
 import kotlinx.datetime.toKotlinInstant
