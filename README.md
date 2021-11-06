@@ -6,7 +6,7 @@
 
 # What is this?
 
-The project provides additional backend processing to the [Source++](https://github.com/sourceplusplus/live-platform) open-source live coding platform.
+This project provides additional backend processing to the [Source++](https://github.com/sourceplusplus/live-platform) open-source live coding platform.
 
 # Features
 
