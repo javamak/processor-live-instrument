@@ -175,7 +175,7 @@ class LiveInstrumentAnalysis(elasticSearch: EsDAO) : AnalysisListenerFactory, Lo
                     "stack_trace" to stackTraces[it]!!,
                     "variables" to variables.getOrDefault(it, emptyList()),
                     "occurred_at" to span.startTime,
-                    "service_host" to segment.serviceInstance.substringAfter("@"),
+                    "service_instance" to segment.serviceInstance,
                     "service" to segment.service,
                     "location_source" to locationSources[it]!!,
                     "location_line" to locationLines[it]!!
