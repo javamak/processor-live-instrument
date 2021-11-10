@@ -126,4 +126,4 @@ tasks.getByName<com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar>("sha
     //relocate("com.sourceplusplus.protocol", "spp.processor.common.com.sourceplusplus.protocol")
     //minimize()
 }
-tasks.getByName("build").dependsOn("shadowJar")
+tasks.getByName("jar").dependsOn("shadowJar")
