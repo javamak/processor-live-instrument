@@ -8,7 +8,6 @@ val processorGroup: String by project
 val instrumentProcessorVersion: String by project
 val skywalkingVersion: String by project
 val vertxVersion: String by project
-val gsonVersion: String by project
 val grpcVersion: String by project
 val sourceMarkerVersion: String by project
 val protocolVersion: String by project
@@ -27,9 +26,9 @@ repositories {
 }
 
 dependencies {
-    implementation("com.github.sourceplusplus.protocol:protocol:$protocolVersion")
-    implementation("org.jetbrains.kotlin:kotlin-reflect:$kotlinVersion")
     implementation("org.jooq:joor:$joorVersion")
+    compileOnly("com.github.sourceplusplus.protocol:protocol:$protocolVersion")
+    compileOnly("org.jetbrains.kotlin:kotlin-reflect:$kotlinVersion")
     compileOnly("org.apache.skywalking:apm-network:$skywalkingVersion") { isTransitive = false }
     compileOnly("org.apache.skywalking:library-server:$skywalkingVersion") { isTransitive = false }
     compileOnly("org.apache.skywalking:library-module:$skywalkingVersion") { isTransitive = false }
@@ -45,24 +44,23 @@ dependencies {
     compileOnly("org.apache.skywalking:event-analyzer:$skywalkingVersion") { isTransitive = false }
     compileOnly("org.apache.skywalking:meter-analyzer:$skywalkingVersion") { isTransitive = false }
     compileOnly("org.elasticsearch:elasticsearch:7.15.2")
-    implementation("io.vertx:vertx-service-discovery:$vertxVersion")
-    implementation(files(".ext/vertx-service-proxy-4.0.2.jar"))
-    implementation("io.vertx:vertx-codegen:$vertxVersion")
-    implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.3.1")
+    compileOnly("io.vertx:vertx-service-discovery:$vertxVersion")
+    compileOnly(files(".ext/vertx-service-proxy-4.0.2.jar"))
+    compileOnly("io.vertx:vertx-codegen:$vertxVersion")
+    compileOnly("org.jetbrains.kotlinx:kotlinx-datetime:0.3.1")
     kapt("io.vertx:vertx-codegen:$vertxVersion:processor")
     annotationProcessor("io.vertx:vertx-service-proxy:$vertxVersion")
-    implementation("io.vertx:vertx-tcp-eventbus-bridge:$vertxVersion")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.2")
-    implementation("io.vertx:vertx-core:$vertxVersion")
-    implementation("io.vertx:vertx-lang-kotlin:$vertxVersion")
-    implementation("io.vertx:vertx-lang-kotlin-coroutines:$vertxVersion")
-    implementation("com.fasterxml.jackson.datatype:jackson-datatype-jsr310:$jacksonVersion")
-    implementation("com.fasterxml.jackson.datatype:jackson-datatype-jdk8:$jacksonVersion")
-    implementation("com.fasterxml.jackson.datatype:jackson-datatype-guava:$jacksonVersion")
-    implementation("com.fasterxml.jackson.module:jackson-module-kotlin:$jacksonVersion")
-    implementation("org.slf4j:slf4j-api:1.7.32")
-    implementation("com.google.code.gson:gson:$gsonVersion")
-    implementation("com.google.guava:guava:31.0.1-jre")
+    compileOnly("io.vertx:vertx-tcp-eventbus-bridge:$vertxVersion")
+    compileOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.2")
+    compileOnly("io.vertx:vertx-core:$vertxVersion")
+    compileOnly("io.vertx:vertx-lang-kotlin:$vertxVersion")
+    compileOnly("io.vertx:vertx-lang-kotlin-coroutines:$vertxVersion")
+    compileOnly("com.fasterxml.jackson.datatype:jackson-datatype-jsr310:$jacksonVersion")
+    compileOnly("com.fasterxml.jackson.datatype:jackson-datatype-jdk8:$jacksonVersion")
+    compileOnly("com.fasterxml.jackson.datatype:jackson-datatype-guava:$jacksonVersion")
+    compileOnly("com.fasterxml.jackson.module:jackson-module-kotlin:$jacksonVersion")
+    compileOnly("org.slf4j:slf4j-api:1.7.32")
+    compileOnly("com.google.guava:guava:31.0.1-jre")
     implementation("io.grpc:grpc-stub:$grpcVersion") {
         exclude(mapOf("group" to "com.google.guava", "module" to "guava"))
     }
@@ -78,52 +76,40 @@ tasks.getByName<com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar>("sha
     archiveBaseName.set("spp-processor-instrument")
     archiveClassifier.set("")
 
-    exclude("google/**")
     exclude("DebugProbesKt.bin")
     exclude("lang-type-mapping.properties")
-    exclude("module-info.class")
-    exclude("META-INF/com.android.tools/**")
     exclude("META-INF/maven/**")
-    exclude("META-INF/native-image/**")
-    exclude("META-INF/proguard/**")
-    exclude("META-INF/services/com.fasterxml.*")
     exclude("META-INF/services/io.vertx.*")
-    exclude("META-INF/services/reactor.blockhound.*")
     exclude("META-INF/versions/**")
     exclude("META-INF/vertx/vertx-service-proxy/**")
-    exclude("META-INF/vertx/web/**")
-    exclude("META-INF/vertx/vertx-version.txt")
-    exclude("META-INF/INDEX.LIST")
     exclude("META-INF/README.txt")
     exclude("META-INF/ABOUT.txt")
     exclude("META-INF/LICENSE.txt")
     exclude("META-INF/LICENSE")
     exclude("META-INF/NOTICE")
     exclude("META-INF/CHANGELOG")
-    exclude("META-INF/io.netty.versions.properties")
     exclude("xsd/**")
     exclude("migrations/**")
+    exclude("io/vertx/serviceproxy/**")
+    exclude("org/jooq/**")
 
-    relocate("com.fasterxml", "spp.processor.common.com.fasterxml")
-    relocate("com.google.common", "spp.processor.common.com.google.common")
-    relocate("com.google.errorprone", "spp.processor.common.com.google.errorprone")
-    relocate("com.google.gson", "spp.processor.common.com.google.gson")
-    relocate("com.google.j2objc", "spp.processor.common.com.google.j2objc")
-    relocate("com.google.thirdparty", "spp.processor.common.com.google.thirdparty")
-    relocate("io.netty", "spp.processor.common.io.netty")
-    relocate("io.vertx", "spp.processor.common.io.vertx")
-    relocate("io.grpc", "spp.processor.common.io.grpc")
-    relocate("io.r2dbc", "spp.processor.common.io.r2dbc")
-    relocate("org.checkerframework", "spp.processor.common.org.checkerframework")
-    relocate("org.codehaus", "spp.processor.common.org.codehaus")
-    relocate("org.intellij", "spp.processor.common.org.intellij")
-    relocate("org.jetbrains", "spp.processor.common.org.jetbrains")
-    relocate("org.jooq", "spp.processor.common.org.jooq")
-    relocate("org.reactivestreams", "spp.processor.common.org.reactivestreams")
-    //relocate("kotlin", "spp.processor.common.kotlin")
-    //relocate("kotlinx", "spp.processor.common.kotlinx")
-    relocate("org.slf4j", "spp.processor.common.org.slf4j")
-    //relocate("com.sourceplusplus.protocol", "spp.processor.common.com.sourceplusplus.protocol")
-    //minimize()
+    relocate("org.joor", "spp.processor.instrument.common.org.joor")
+    minimize()
+
+    dependencyFilter.exclude {
+        it.moduleGroup == "org.jetbrains.kotlin"
+                || it.moduleGroup == "org.jetbrains.kotlinx"
+                || it.moduleGroup == "org.jetbrains"
+                || it.moduleGroup == "org.intellij"
+                || it.moduleGroup == "io.vertx"
+                || it.moduleGroup == "io.netty"
+                || it.moduleGroup == "org.slf4j"
+                || it.moduleGroup == "io.r2dbc"
+                || it.moduleGroup == "com.google.errorprone"
+                || it.moduleGroup == "com.google.guava"
+                || it.moduleGroup == "com.google.code.findbugs"
+                || it.moduleGroup.startsWith("com.fasterxml.")
+                || it.moduleGroup.contains(".sourceplusplus.protocol")
+    }
 }
 tasks.getByName("jar").dependsOn("shadowJar")
