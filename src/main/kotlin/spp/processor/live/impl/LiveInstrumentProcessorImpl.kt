@@ -70,7 +70,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentProcessor
     override fun setupLiveMeter(liveMeter: LiveMeter, handler: Handler<AsyncResult<JsonObject>>) {
         val meterConfig = MeterConfig()
         when (liveMeter.meterType) {
-            MeterType.COUNTER -> {
+            MeterType.COUNT -> {
                 meterConfig.metricPrefix = "spp"
                 meterConfig.metricsRules = mutableListOf(
                     MeterConfig.Rule().apply {
