@@ -9,6 +9,9 @@ import io.vertx.core.json.JsonObject
 import io.vertx.ext.bridge.BridgeEventType
 import io.vertx.ext.eventbus.bridge.tcp.impl.protocol.FrameHelper
 import io.vertx.kotlin.coroutines.CoroutineVerticle
+import io.vertx.kotlin.coroutines.dispatcher
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 import org.slf4j.LoggerFactory
 import spp.processor.InstrumentProcessor
 import spp.processor.live.LiveViewProcessor
@@ -96,9 +99,12 @@ class LiveViewProcessorImpl : CoroutineVerticle(), LiveViewProcessor {
                             (subscriptionCache[it]!![viewMetric]!! as MutableSet).add(subscriber)
                         }
 
-                        //todo: location should be coming from subscription, as is functions as service/serviceInstance wildcard
-                        val location = LiveSourceLocation("", 0)
-                        meterView.sendMeterEvent(it, location, subscriptionCache[it]!!, -1)
+                        //send first event immediately (if available)
+                        GlobalScope.launch(vertx.dispatcher()) {
+                            //todo: location should be coming from subscription, as is functions as service/serviceInstance wildcard
+                            val location = LiveSourceLocation("", 0)
+                            meterView.sendMeterEvent(it, location, subscriptionCache[it]!!, -1)
+                        }
                     }
                 } else {
                     sub.liveViewConfig.viewMetrics.forEach {

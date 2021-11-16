@@ -74,7 +74,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentProcessor
                 meterConfig.metricPrefix = "spp"
                 meterConfig.metricsRules = mutableListOf(
                     MeterConfig.Rule().apply {
-                        val idVariable = "counter_" + liveMeter.id!!.replace("-", "_")
+                        val idVariable = liveMeter.toMetricIdWithoutPrefix()
                         name = idVariable
                         exp = "($idVariable.sum(['service', 'instance']).downsampling(SUM)).instance(['service'], ['instance'])"
                     }
@@ -84,7 +84,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentProcessor
                 meterConfig.metricPrefix = "spp"
                 meterConfig.metricsRules = mutableListOf(
                     MeterConfig.Rule().apply {
-                        val idVariable = "gauge_" + liveMeter.id!!.replace("-", "_")
+                        val idVariable = liveMeter.toMetricIdWithoutPrefix()
                         name = idVariable
                         exp = "($idVariable.downsampling(LATEST)).instance(['service'], ['instance'])"
                     }
@@ -94,7 +94,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentProcessor
                 meterConfig.metricPrefix = "spp"
                 meterConfig.metricsRules = mutableListOf(
                     MeterConfig.Rule().apply {
-                        val idVariable = "histogram_" + liveMeter.id!!.replace("-", "_")
+                        val idVariable = liveMeter.toMetricIdWithoutPrefix()
                         name = idVariable
                         exp = "($idVariable.sum(['le', 'service', 'instance']).increase('PT5M').histogram().histogram_percentile([50,70,90,99])).instance(['service'], ['instance'])"
                     }
@@ -132,7 +132,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentProcessor
             return
         }
 
-        val values = mutableListOf<Long>()
+        val values = mutableListOf<Any>()
         services.forEach { service ->
             val instances = metadata.getServiceInstances(
                 start.toEpochMilliseconds(), stop.toEpochMilliseconds(), service.id
@@ -157,20 +157,37 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentProcessor
                         setServiceInstanceName(instance.name)
                     }
                 }
-                val value = metricsQueryService.readMetricsValue(condition, Duration().apply {
-                    Reflect.on(this).set(
-                        "start",
-                        DateTimeFormatter.ofPattern(step.pattern).withZone(ZoneOffset.UTC)
-                            .format(start.toJavaInstant())
-                    )
-                    Reflect.on(this).set(
-                        "end",
-                        DateTimeFormatter.ofPattern(step.pattern).withZone(ZoneOffset.UTC)
-                            .format(stop.toJavaInstant())
-                    )
-                    Reflect.on(this).set("step", Step.valueOf(step.name))
-                })
-                values.add(value)
+                if (metricId.contains("histogram")) {
+                    val value = metricsQueryService.readHeatMap(condition, Duration().apply {
+                        Reflect.on(this).set(
+                            "start",
+                            DateTimeFormatter.ofPattern(step.pattern).withZone(ZoneOffset.UTC)
+                                .format(start.toJavaInstant())
+                        )
+                        Reflect.on(this).set(
+                            "end",
+                            DateTimeFormatter.ofPattern(step.pattern).withZone(ZoneOffset.UTC)
+                                .format(stop.toJavaInstant())
+                        )
+                        Reflect.on(this).set("step", Step.valueOf(step.name))
+                    })
+                    values.add(value)
+                } else {
+                    val value = metricsQueryService.readMetricsValue(condition, Duration().apply {
+                        Reflect.on(this).set(
+                            "start",
+                            DateTimeFormatter.ofPattern(step.pattern).withZone(ZoneOffset.UTC)
+                                .format(start.toJavaInstant())
+                        )
+                        Reflect.on(this).set(
+                            "end",
+                            DateTimeFormatter.ofPattern(step.pattern).withZone(ZoneOffset.UTC)
+                                .format(stop.toJavaInstant())
+                        )
+                        Reflect.on(this).set("step", Step.valueOf(step.name))
+                    })
+                    values.add(value)
+                }
             }
         }
         handler.handle(Future.succeededFuture(JsonObject().put("values", JsonArray(values))))
