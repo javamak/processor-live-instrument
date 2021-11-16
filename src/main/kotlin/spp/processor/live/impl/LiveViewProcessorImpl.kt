@@ -1,6 +1,5 @@
 package spp.processor.live.impl
 
-import spp.protocol.view.LiveViewSubscription
 import io.vertx.core.AsyncResult
 import io.vertx.core.Future
 import io.vertx.core.Handler
@@ -20,8 +19,10 @@ import spp.processor.live.impl.view.LiveTracesView
 import spp.processor.live.impl.view.util.EntitySubscribersCache
 import spp.processor.live.impl.view.util.MetricTypeSubscriptionCache
 import spp.processor.live.impl.view.util.ViewSubscriber
+import spp.protocol.instrument.LiveSourceLocation
 import spp.protocol.platform.PlatformAddress.MARKER_DISCONNECTED
 import spp.protocol.processor.ProcessorAddress.VIEW_SUBSCRIPTION_EVENT
+import spp.protocol.view.LiveViewSubscription
 import java.util.*
 
 class LiveViewProcessorImpl : CoroutineVerticle(), LiveViewProcessor {
@@ -86,11 +87,26 @@ class LiveViewProcessorImpl : CoroutineVerticle(), LiveViewProcessor {
                     mutableListOf(),
                     consumer
                 )
-                sub.liveViewConfig.viewMetrics.forEach {
-                    subscriptionCache.computeIfAbsent(it) { EntitySubscribersCache() }
-                    sub.entityIds.forEach { entityId ->
-                        subscriptionCache[it]!!.computeIfAbsent(entityId) { mutableSetOf() }
-                        (subscriptionCache[it]!![entityId]!! as MutableSet).add(subscriber)
+
+                if (sub.liveViewConfig.viewName == "LIVE_METER") {
+                    sub.entityIds.forEach {
+                        subscriptionCache.computeIfAbsent(it) { EntitySubscribersCache() }
+                        sub.liveViewConfig.viewMetrics.forEach { viewMetric ->
+                            subscriptionCache[it]!!.computeIfAbsent(viewMetric) { mutableSetOf() }
+                            (subscriptionCache[it]!![viewMetric]!! as MutableSet).add(subscriber)
+                        }
+
+                        //todo: location should be coming from subscription, as is functions as service/serviceInstance wildcard
+                        val location = LiveSourceLocation("", 0)
+                        meterView.sendMeterEvent(it, location, subscriptionCache[it]!!, -1)
+                    }
+                } else {
+                    sub.liveViewConfig.viewMetrics.forEach {
+                        subscriptionCache.computeIfAbsent(it) { EntitySubscribersCache() }
+                        sub.entityIds.forEach { entityId ->
+                            subscriptionCache[it]!!.computeIfAbsent(entityId) { mutableSetOf() }
+                            (subscriptionCache[it]!![entityId]!! as MutableSet).add(subscriber)
+                        }
                     }
                 }
 

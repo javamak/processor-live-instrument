@@ -1,8 +1,5 @@
 package spp.processor.live.impl
 
-import spp.protocol.instrument.DurationStep
-import spp.protocol.instrument.meter.LiveMeter
-import spp.protocol.instrument.meter.MeterType
 import io.vertx.core.AsyncResult
 import io.vertx.core.Future
 import io.vertx.core.Handler
@@ -32,6 +29,10 @@ import org.joor.Reflect
 import org.slf4j.LoggerFactory
 import spp.processor.InstrumentProcessor
 import spp.processor.live.LiveInstrumentProcessor
+import spp.protocol.instrument.DurationStep
+import spp.protocol.instrument.LiveSourceLocation
+import spp.protocol.instrument.meter.LiveMeter
+import spp.protocol.instrument.meter.MeterType
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 
@@ -109,10 +110,22 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentProcessor
         liveMeter: LiveMeter,
         start: Instant,
         stop: Instant,
-        step: String,
+        step: DurationStep,
         handler: Handler<AsyncResult<JsonObject>>
     ) {
-        val services = metadata.getAllServices(liveMeter.location.service ?: "")
+        getLiveMeterMetrics(liveMeter.toMetricId(), liveMeter.location, start, stop, step, handler)
+    }
+
+    fun getLiveMeterMetrics(
+        metricId: String,
+        location: LiveSourceLocation,
+        start: Instant,
+        stop: Instant,
+        step: DurationStep,
+        handler: Handler<AsyncResult<JsonObject>>
+    ) {
+        log.debug("Getting live meter metrics. Metric id: {}", metricId)
+        val services = metadata.getAllServices(location.service ?: "")
         if (services.isEmpty()) {
             log.info("No services found")
             handler.handle(Future.succeededFuture(JsonObject().put("values", JsonArray())))
@@ -130,13 +143,13 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentProcessor
             }
 
             instances.forEach { instance ->
-                val serviceInstance = liveMeter.location.serviceInstance
+                val serviceInstance = location.serviceInstance
                 if (serviceInstance != null && serviceInstance != instance.name) {
                     return@forEach
                 }
 
                 val condition = MetricsCondition().apply {
-                    name = liveMeter.toMetricId()
+                    name = metricId
                     entity = Entity().apply {
                         setScope(Scope.ServiceInstance)
                         setNormal(true)
@@ -147,15 +160,15 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentProcessor
                 val value = metricsQueryService.readMetricsValue(condition, Duration().apply {
                     Reflect.on(this).set(
                         "start",
-                        DateTimeFormatter.ofPattern(DurationStep.MINUTE.pattern).withZone(ZoneOffset.UTC)
+                        DateTimeFormatter.ofPattern(step.pattern).withZone(ZoneOffset.UTC)
                             .format(start.toJavaInstant())
                     )
                     Reflect.on(this).set(
                         "end",
-                        DateTimeFormatter.ofPattern(DurationStep.MINUTE.pattern).withZone(ZoneOffset.UTC)
+                        DateTimeFormatter.ofPattern(step.pattern).withZone(ZoneOffset.UTC)
                             .format(stop.toJavaInstant())
                     )
-                    Reflect.on(this).set("step", Step.MINUTE)
+                    Reflect.on(this).set("step", Step.valueOf(step.name))
                 })
                 values.add(value)
             }

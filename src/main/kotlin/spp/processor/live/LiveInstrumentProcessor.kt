@@ -7,6 +7,7 @@ import io.vertx.core.AsyncResult
 import io.vertx.core.Handler
 import io.vertx.core.json.JsonObject
 import kotlinx.datetime.Instant
+import spp.protocol.instrument.DurationStep
 
 @VertxGen
 @ProxyGen
@@ -20,7 +21,7 @@ interface LiveInstrumentProcessor {
         liveMeter: LiveMeter,
         start: Instant,
         stop: Instant,
-        step: String,
+        step: DurationStep,
         handler: Handler<AsyncResult<JsonObject>>
     )
 }
