@@ -13,14 +13,13 @@ import org.apache.skywalking.oap.log.analyzer.provider.log.listener.LogAnalysisL
 import org.apache.skywalking.oap.server.analyzer.provider.AnalyzerModuleConfig
 import org.apache.skywalking.oap.server.analyzer.provider.trace.parser.listener.*
 import org.apache.skywalking.oap.server.library.module.ModuleManager
-import org.apache.skywalking.oap.server.storage.plugin.elasticsearch.base.EsDAO
 import org.slf4j.LoggerFactory
 import spp.processor.InstrumentProcessor
 import spp.protocol.processor.ProcessorAddress
 import spp.protocol.processor.ProcessorAddress.BREAKPOINT_HIT
 import java.util.concurrent.TimeUnit
 
-class LiveInstrumentAnalysis(elasticSearch: EsDAO) : AnalysisListenerFactory, LogAnalysisListenerFactory {
+class LiveInstrumentAnalysis: AnalysisListenerFactory, LogAnalysisListenerFactory {
 
     companion object {
         private val log = LoggerFactory.getLogger(LiveInstrumentAnalysis::class.java)
@@ -101,8 +100,7 @@ class LiveInstrumentAnalysis(elasticSearch: EsDAO) : AnalysisListenerFactory, Lo
 
     override fun create() = sppLogAnalyzer
 
-    private class Listener(private val elasticSearch: EsDAO) :
-        LocalAnalysisListener, EntryAnalysisListener, ExitAnalysisListener {
+    private class Listener : LocalAnalysisListener, EntryAnalysisListener, ExitAnalysisListener {
         override fun build() = Unit
         override fun containsPoint(point: AnalysisListener.Point): Boolean =
             point == AnalysisListener.Point.Local || point == AnalysisListener.Point.Entry ||
@@ -180,12 +178,11 @@ class LiveInstrumentAnalysis(elasticSearch: EsDAO) : AnalysisListenerFactory, Lo
                     "location_source" to locationSources[it]!!,
                     "location_line" to locationLines[it]!!
                 )
-                elasticSearch.client.forceInsert("spp_breakpoint_hit", "${it}:${segment.traceId}", bpHitObj)
                 InstrumentProcessor.vertx.eventBus().publish(BREAKPOINT_HIT.address, JsonObject.mapFrom(bpHitObj))
             }
         }
     }
 
-    private val listener: AnalysisListener = Listener(elasticSearch)
+    private val listener: AnalysisListener = Listener()
     override fun create(p0: ModuleManager, p1: AnalyzerModuleConfig): AnalysisListener = listener
 }

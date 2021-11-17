@@ -22,9 +22,7 @@ import org.apache.skywalking.oap.server.core.query.input.Duration
 import org.apache.skywalking.oap.server.core.query.input.Entity
 import org.apache.skywalking.oap.server.core.query.input.MetricsCondition
 import org.apache.skywalking.oap.server.core.storage.StorageModule
-import org.apache.skywalking.oap.server.core.storage.query.ILogQueryDAO
 import org.apache.skywalking.oap.server.core.storage.query.IMetadataQueryDAO
-import org.apache.skywalking.oap.server.storage.plugin.elasticsearch.base.EsDAO
 import org.joor.Reflect
 import org.slf4j.LoggerFactory
 import spp.processor.InstrumentProcessor
@@ -42,7 +40,6 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentProcessor
         private val log = LoggerFactory.getLogger(LiveInstrumentProcessorImpl::class.java)
     }
 
-    private lateinit var elasticSearch: EsDAO
     private lateinit var metricsQueryService: MetricsQueryService
     private lateinit var metadata: IMetadataQueryDAO
     private lateinit var meterSystem: MeterSystem
@@ -51,7 +48,6 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentProcessor
     override suspend fun start() {
         log.info("Starting LiveInstrumentProcessorImpl")
         InstrumentProcessor.module!!.find(StorageModule.NAME).provider().apply {
-            elasticSearch = getService(ILogQueryDAO::class.java) as EsDAO
             metadata = getService(IMetadataQueryDAO::class.java)
         }
         InstrumentProcessor.module!!.find(CoreModule.NAME).provider().apply {

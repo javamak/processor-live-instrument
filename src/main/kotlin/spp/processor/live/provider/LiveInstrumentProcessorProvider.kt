@@ -9,11 +9,9 @@ import org.apache.skywalking.oap.server.analyzer.provider.trace.parser.SegmentPa
 import org.apache.skywalking.oap.server.analyzer.provider.trace.parser.SegmentParserServiceImpl
 import org.apache.skywalking.oap.server.core.CoreModule
 import org.apache.skywalking.oap.server.core.storage.StorageModule
-import org.apache.skywalking.oap.server.core.storage.query.ILogQueryDAO
 import org.apache.skywalking.oap.server.library.module.ModuleConfig
 import org.apache.skywalking.oap.server.library.module.ModuleDefine
 import org.apache.skywalking.oap.server.library.module.ModuleProvider
-import org.apache.skywalking.oap.server.storage.plugin.elasticsearch.base.EsDAO
 import org.slf4j.LoggerFactory
 import spp.processor.InstrumentProcessor
 import spp.processor.live.impl.instrument.LiveInstrumentAnalysis
@@ -37,11 +35,7 @@ class LiveInstrumentProcessorProvider : ModuleProvider() {
         log.info("Starting LiveInstrumentProcessorProvider")
         InstrumentProcessor.module = manager
 
-        //todo: indexes
-
-        val elasticSearch = manager.find(StorageModule.NAME).provider()
-            .getService(ILogQueryDAO::class.java) as EsDAO
-        val liveInstrumentAnalysis = LiveInstrumentAnalysis(elasticSearch)
+        val liveInstrumentAnalysis = LiveInstrumentAnalysis()
 
         //gather live breakpoints
         val segmentParserService = manager.find(AnalyzerModule.NAME)

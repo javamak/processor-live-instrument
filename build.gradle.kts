@@ -36,14 +36,11 @@ dependencies {
     compileOnly("org.apache.skywalking:telemetry-api:$skywalkingVersion") { isTransitive = false }
     compileOnly("org.apache.skywalking:server-core:$skywalkingVersion") { isTransitive = false }
     compileOnly("org.apache.skywalking:skywalking-sharing-server-plugin:$skywalkingVersion") { isTransitive = false }
-    compileOnly("org.apache.skywalking:storage-elasticsearch-plugin:$skywalkingVersion") { isTransitive = false }
-    compileOnly("org.apache.skywalking:library-elasticsearch-client:$skywalkingVersion") { isTransitive = false }
     compileOnly("org.apache.skywalking:library-client:$skywalkingVersion") { isTransitive = false }
     compileOnly("org.apache.skywalking:skywalking-trace-receiver-plugin:$skywalkingVersion") { isTransitive = false }
     compileOnly("org.apache.skywalking:agent-analyzer:$skywalkingVersion") { isTransitive = false }
     compileOnly("org.apache.skywalking:event-analyzer:$skywalkingVersion") { isTransitive = false }
     compileOnly("org.apache.skywalking:meter-analyzer:$skywalkingVersion") { isTransitive = false }
-    compileOnly("org.elasticsearch:elasticsearch:7.15.2")
     compileOnly("io.vertx:vertx-service-discovery:$vertxVersion")
     compileOnly(files(".ext/vertx-service-proxy-4.0.2.jar"))
     compileOnly("io.vertx:vertx-codegen:$vertxVersion")

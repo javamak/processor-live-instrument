@@ -38,7 +38,6 @@ Introduces **Live Instruments**, ephemeral production debugging devices for live
 
 - SkyWalking OAP
   - Version >= 8.0.0
-  - Storage = elasticsearch
 - Modules
   - `CoreModule`
   - `AnalyzerModule`
