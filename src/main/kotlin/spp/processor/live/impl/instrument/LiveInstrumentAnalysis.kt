@@ -19,12 +19,13 @@ import spp.protocol.processor.ProcessorAddress
 import spp.protocol.processor.ProcessorAddress.BREAKPOINT_HIT
 import java.util.concurrent.TimeUnit
 
-class LiveInstrumentAnalysis: AnalysisListenerFactory, LogAnalysisListenerFactory {
+class LiveInstrumentAnalysis : AnalysisListenerFactory, LogAnalysisListenerFactory {
 
     companion object {
         private val log = LoggerFactory.getLogger(LiveInstrumentAnalysis::class.java)
 
         const val LOCAL_VARIABLE = "spp.local-variable:"
+        const val GLOBAL_VARIABLE = "spp.global-variable:"
         const val STATIC_FIELD = "spp.static-field:"
         const val INSTANCE_FIELD = "spp.field:"
         const val STACK_TRACE = "spp.stack-trace:"
@@ -126,6 +127,17 @@ class LiveInstrumentAnalysis: AnalysisListenerFactory, LogAnalysisListenerFactor
                         variables[breakpointId]!!.add(
                             mutableMapOf(
                                 "scope" to "LOCAL_VARIABLE",
+                                "data" to mutableMapOf(parts[1] to it.value)
+                            )
+                        )
+                    }
+                    it.key.startsWith(GLOBAL_VARIABLE) -> {
+                        val parts = it.key.substring(GLOBAL_VARIABLE.length).split(":")
+                        val breakpointId = parts[0]
+                        variables.putIfAbsent(breakpointId, mutableListOf())
+                        variables[breakpointId]!!.add(
+                            mutableMapOf(
+                                "scope" to "GLOBAL_VARIABLE",
                                 "data" to mutableMapOf(parts[1] to it.value)
                             )
                         )
