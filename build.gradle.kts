@@ -9,7 +9,6 @@ val instrumentProcessorVersion: String by project
 val skywalkingVersion: String by project
 val vertxVersion: String by project
 val grpcVersion: String by project
-val sourceMarkerVersion: String by project
 val protocolVersion: String by project
 val jacksonVersion: String by project
 val kotlinVersion: String by project
