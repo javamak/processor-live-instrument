@@ -41,7 +41,7 @@ dependencies {
     compileOnly("org.apache.skywalking:event-analyzer:$skywalkingVersion") { isTransitive = false }
     compileOnly("org.apache.skywalking:meter-analyzer:$skywalkingVersion") { isTransitive = false }
     compileOnly("io.vertx:vertx-service-discovery:$vertxVersion")
-    compileOnly(files(".ext/vertx-service-proxy-4.0.2.jar"))
+    compileOnly("io.vertx:vertx-service-proxy:$vertxVersion")
     compileOnly("io.vertx:vertx-codegen:$vertxVersion")
     compileOnly("org.jetbrains.kotlinx:kotlinx-datetime:0.3.1")
     kapt("io.vertx:vertx-codegen:$vertxVersion:processor")
