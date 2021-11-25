@@ -67,11 +67,12 @@ object InstrumentProcessor {
         }
     }
 
+    //todo: extract common connectToPlatform()
     @Synchronized
     private fun connectToPlatform() {
         if (connected.get()) return
-        val platformHost = System.getenv("SPP_PLATFORM_HOST")!!
-        val platformPort = System.getenv("SPP_PLATFORM_PORT").toInt()
+        val platformHost = System.getenv("SPP_PLATFORM_HOST")?.trim() ?: "localhost"
+        val platformPort = System.getenv("SPP_PLATFORM_PORT")?.trim()?.toInt() ?: 5460
         val trustAll = System.getenv("SPP_PLATFORM_SSL_TRUST_ALL") == "true"
         val platformCertificate = System.getenv("SPP_PLATFORM_CERTIFICATE")
         val platformCertificateFile = System.getenv("SPP_PLATFORM_CERTIFICATE_FILE")
