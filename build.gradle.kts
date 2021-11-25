@@ -6,6 +6,7 @@ plugins {
 
 val processorGroup: String by project
 val instrumentProcessorVersion: String by project
+val processorDependenciesVersion: String by project
 val skywalkingVersion: String by project
 val vertxVersion: String by project
 val grpcVersion: String by project
@@ -27,7 +28,7 @@ repositories {
 dependencies {
     implementation("org.jooq:joor:$joorVersion")
 
-    compileOnly(project(":processors:dependencies"))
+    compileOnly("com.github.sourceplusplus:processor-dependencies:$processorDependenciesVersion")
     compileOnly("com.github.sourceplusplus.protocol:protocol:$protocolVersion")
     compileOnly("org.jetbrains.kotlin:kotlin-reflect:$kotlinVersion")
     compileOnly("org.apache.skywalking:apm-network:$skywalkingVersion") { isTransitive = false }
