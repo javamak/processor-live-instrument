@@ -20,7 +20,6 @@ version = instrumentProcessorVersion
 
 repositories {
     mavenCentral()
-    jcenter()
     maven(url = "https://jitpack.io")
 }
 
