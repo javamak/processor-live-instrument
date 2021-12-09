@@ -63,7 +63,7 @@ dependencies {
     compileOnly("com.fasterxml.jackson.module:jackson-module-kotlin:$jacksonVersion")
     compileOnly("org.slf4j:slf4j-api:1.7.32")
     compileOnly("com.google.guava:guava:31.0.1-jre")
-    implementation("io.grpc:grpc-stub:$grpcVersion") {
+    compileOnly("io.grpc:grpc-stub:$grpcVersion") {
         exclude(mapOf("group" to "com.google.guava", "module" to "guava"))
     }
     compileOnly("io.grpc:grpc-netty:$grpcVersion") {
