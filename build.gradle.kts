@@ -186,9 +186,9 @@ tasks {
             "shadowJar", "updateDockerFiles", "composeUp"
         )
     }
-    getByName("composeUp").shouldRunAfter(
+    getByName("composeUp").mustRunAfter(
         "downloadProbe", "downloadProbeServices", "downloadProcessorDependencies",
-        "updateDockerFiles"
+        "shadowJar", "updateDockerFiles"
     )
 }
 tasks.getByName<Test>("test") {
