@@ -23,10 +23,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
-      - run: |
-          PROBE_VERSION="$(python setup.py --version)"
-          echo "SPP_PROBE_VERSION=$PROBE_VERSION" >> $GITHUB_ENV
-
       - run: ./gradlew assembleUp
 
       - name: Docker IPs

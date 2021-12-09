@@ -83,8 +83,6 @@ dependencies {
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.2")
     testImplementation(files(".ext/vertx-service-proxy-4.0.2.jar"))
     testImplementation("org.slf4j:slf4j-api:1.7.32")
-
-    //testImplementation(project(":processors:dependencies"))
 }
 
 tasks.getByName<com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar>("shadowJar") {
