@@ -40,8 +40,6 @@ class InstrumentIntegrationTest : ProcessorIntegrationTest() {
         consumer.handler {
             log.info("Got subscription event: {}", it.body())
             val liveEvent = Json.decodeValue(it.body().toString(), LiveInstrumentEvent::class.java)
-            println(liveEvent)
-
             when (liveEvent.eventType) {
                 LiveInstrumentEventType.BREAKPOINT_ADDED -> {
                     log.info("Got added")
@@ -171,7 +169,7 @@ class InstrumentIntegrationTest : ProcessorIntegrationTest() {
             }
         }
 
-        if (testContext.awaitCompletion(60, TimeUnit.SECONDS)) {
+        if (testContext.awaitCompletion(30, TimeUnit.SECONDS)) {
             if (testContext.failed()) {
                 consumer.unregister()
                 log.info("Got added: $gotAdded")
