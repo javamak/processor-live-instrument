@@ -216,7 +216,8 @@ class InstrumentIntegrationTest : ProcessorIntegrationTest() {
                 instrumentService.addLiveInstrument(
                     LiveBreakpoint(
                         id = instrumentId,
-                        location = LiveSourceLocation("E2EApp", 24)
+                        location = LiveSourceLocation("E2EApp", 24),
+                        hitLimit = 100
                     )
                 ) {
                     if (it.failed()) {
@@ -226,7 +227,7 @@ class InstrumentIntegrationTest : ProcessorIntegrationTest() {
             }
         }
 
-        if (testContext.awaitCompletion(60, TimeUnit.SECONDS)) {
+        if (testContext.awaitCompletion(120, TimeUnit.SECONDS)) {
             if (testContext.failed()) {
                 consumer.unregister()
                 log.info("Got added: $gotAdded")
