@@ -1,4 +1,8 @@
+import java.io.FileOutputStream
+import java.net.URL
+
 plugins {
+    id("com.avast.gradle.docker-compose")
     id("com.github.johnrengelman.shadow")
     kotlin("jvm")
     kotlin("kapt")
@@ -14,6 +18,7 @@ val protocolVersion: String by project
 val jacksonVersion: String by project
 val kotlinVersion: String by project
 val joorVersion: String by project
+val jupiterVersion: String by project
 
 group = processorGroup
 version = instrumentProcessorVersion
@@ -67,6 +72,19 @@ dependencies {
     compileOnly("io.grpc:grpc-protobuf:$grpcVersion") {
         exclude(mapOf("group" to "com.google.guava", "module" to "guava"))
     }
+
+    testImplementation("io.vertx:vertx-core:$vertxVersion")
+    testImplementation("org.junit.jupiter:junit-jupiter-engine:$jupiterVersion")
+    testImplementation("io.vertx:vertx-junit5:$vertxVersion")
+    testImplementation("io.vertx:vertx-web-client:$vertxVersion")
+    testImplementation("io.vertx:vertx-lang-kotlin-coroutines:$vertxVersion")
+    testImplementation("com.github.sourceplusplus.protocol:protocol:$protocolVersion")
+    testImplementation("io.vertx:vertx-tcp-eventbus-bridge:$vertxVersion")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.2")
+    testImplementation(files(".ext/vertx-service-proxy-4.0.2.jar"))
+    testImplementation("org.slf4j:slf4j-api:1.7.32")
+
+    //testImplementation(project(":processors:dependencies"))
 }
 
 tasks.getByName<com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar>("shadowJar") {
@@ -110,3 +128,86 @@ tasks.getByName<com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar>("sha
     }
 }
 tasks.getByName("jar").dependsOn("shadowJar")
+
+tasks {
+    register("downloadProbe") {
+        doLast {
+            val f = File(projectDir, "e2e/spp-probe-0.2.1.jar")
+            if (!f.exists()) {
+                println("Downloading Source++ JVM probe")
+                URL("https://github.com/sourceplusplus/probe-jvm/releases/download/0.2.1/spp-probe-0.2.1.jar")
+                    .openStream().use { input ->
+                        FileOutputStream(f).use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+                println("Downloaded Source++ JVM probe")
+            }
+        }
+    }
+    register("downloadProbeServices") {
+        doLast {
+            val f = File(projectDir, "e2e/spp-skywalking-services-0.2.1.jar")
+            if (!f.exists()) {
+                println("Downloading Source++ JVM probe services")
+                URL("https://github.com/sourceplusplus/probe-jvm/releases/download/0.2.1/spp-skywalking-services-0.2.1.jar")
+                    .openStream().use { input ->
+                        FileOutputStream(f).use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+                println("Downloaded Source++ JVM probe services")
+            }
+        }
+    }
+    register("downloadProcessorDependencies") {
+        doLast {
+            val f = File(projectDir, "e2e/spp-processor-dependencies-$processorDependenciesVersion.jar")
+            if (!f.exists()) {
+                println("Downloading Source++ processor dependencies")
+                URL("https://github.com/sourceplusplus/processor-dependencies/releases/download/$processorDependenciesVersion/spp-processor-dependencies-$processorDependenciesVersion.jar")
+                    .openStream().use { input ->
+                        FileOutputStream(f).use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+                println("Downloaded Source++ processor dependencies")
+            }
+        }
+    }
+    register<Copy>("updateDockerFiles") {
+        dependsOn("shadowJar")
+
+        from("build/libs/spp-processor-instrument-$version.jar")
+        into(File(projectDir, "e2e"))
+    }
+
+    register("assembleUp") {
+        dependsOn(
+            "downloadProbe", "downloadProbeServices", "downloadProcessorDependencies",
+            "shadowJar", "updateDockerFiles", "composeUp"
+        )
+    }
+    getByName("composeUp").shouldRunAfter(
+        "downloadProbe", "downloadProbeServices", "downloadProcessorDependencies",
+        "updateDockerFiles"
+    )
+}
+tasks.getByName<Test>("test") {
+    failFast = true
+    useJUnitPlatform()
+
+    testLogging {
+        events("passed", "skipped", "failed")
+        setExceptionFormat("full")
+
+        outputs.upToDateWhen { false }
+        showStandardStreams = true
+    }
+}
+
+dockerCompose {
+    dockerComposeWorkingDirectory.set(File("./e2e"))
+    removeVolumes.set(true)
+    waitForTcpPorts.set(false)
+}

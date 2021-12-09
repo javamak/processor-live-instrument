@@ -1,0 +1,12 @@
+FROM apache/skywalking-oap-server:8.9.0
+
+ADD ./spp-processor-dependencies-*.jar /skywalking/ext-libs/
+
+ADD ./spp-processor-*.jar /skywalking/oap-libs/
+
+RUN printf "\nspp-live-instrument:\n  selector: \${SPP_LIVE_INSTRUMENT:default}\n  default:\n" \
+    >> /skywalking/config/application.yml
+
+ENV SPP_PLATFORM_SSL_TRUST_ALL=true
+ENV SPP_PLATFORM_HOST=spp-platform
+ENV SPP_PLATFORM_PORT=5460
