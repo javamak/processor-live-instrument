@@ -226,7 +226,7 @@ class InstrumentIntegrationTest : ProcessorIntegrationTest() {
             }
         }
 
-        if (testContext.awaitCompletion(30, TimeUnit.SECONDS)) {
+        if (testContext.awaitCompletion(60, TimeUnit.SECONDS)) {
             if (testContext.failed()) {
                 consumer.unregister()
                 log.info("Got added: $gotAdded")
