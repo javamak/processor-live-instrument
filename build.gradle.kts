@@ -194,6 +194,9 @@ tasks {
 tasks.getByName<Test>("test") {
     failFast = true
     useJUnitPlatform()
+    if (System.getProperty("test.profile") != "integration") {
+        exclude("integration/**")
+    }
 
     testLogging {
         events("passed", "skipped", "failed")
