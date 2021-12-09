@@ -3,7 +3,6 @@ spp:
   platform_port: 5450
   disable_tls: true
   quiet_mode: false
-  verify_host: false
 skywalking:
   logging:
     level: "DEBUG"
