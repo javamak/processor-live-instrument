@@ -2,8 +2,6 @@ package integration
 
 import io.vertx.core.json.Json
 import io.vertx.core.json.JsonObject
-import io.vertx.ext.bridge.BridgeEventType
-import io.vertx.ext.eventbus.bridge.tcp.impl.protocol.FrameHelper
 import io.vertx.junit5.VertxExtension
 import io.vertx.junit5.VertxTestContext
 import io.vertx.serviceproxy.ServiceProxyBuilder
@@ -37,31 +35,6 @@ class InstrumentIntegrationTest : ProcessorIntegrationTest() {
         var gotHit = false
         var gotRemoved = false
         val instrumentId = UUID.randomUUID().toString()
-
-        vertx.eventBus().localConsumer<JsonObject>(SourceMarkerServices.Utilize.LIVE_INSTRUMENT) { resp ->
-            val forwardAddress = resp.address()
-            val forwardMessage = resp.body()
-            val replyAddress = UUID.randomUUID().toString()
-
-            val tempConsumer = vertx.eventBus().localConsumer<Any>("local.$replyAddress")
-            tempConsumer.handler {
-                resp.reply(it.body())
-                tempConsumer.unregister()
-            }
-
-            val headers = JsonObject()
-            resp.headers().entries().forEach { headers.put(it.key, it.value) }
-            FrameHelper.sendFrame(
-                BridgeEventType.SEND.name.toLowerCase(), forwardAddress,
-                replyAddress, headers, true, forwardMessage, tcpSocket
-            )
-        }
-
-        //register listener
-        FrameHelper.sendFrame(
-            BridgeEventType.REGISTER.name.toLowerCase(),
-            Provide.LIVE_INSTRUMENT_SUBSCRIBER, JsonObject(), tcpSocket
-        )
 
         val consumer = vertx.eventBus().localConsumer<JsonObject>("local." + Provide.LIVE_INSTRUMENT_SUBSCRIBER)
         consumer.handler {
