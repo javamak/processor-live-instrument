@@ -1,0 +1,11 @@
+FROM openjdk:11
+
+ADD E2EApp.java .
+RUN javac -g E2EApp.java
+RUN jar cvfe E2EApp.jar E2EApp *.class
+
+ADD spp-probe-0.2.1.jar .
+ADD spp-probe.yml .
+
+CMD java -javaagent:spp-probe-0.2.1.jar -jar E2EApp.jar
+#CMD java -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5105 -javaagent:spp-probe-0.2.1.jar -jar E2EApp.jar
