@@ -6,8 +6,8 @@ services:
       dockerfile: Dockerfile-e2e-app
     container_name: e2e-app
     hostname: e2e-app
-    ports:
-      - "5105:5105"
+#    ports:
+#      - "5105:5105"
   spp-platform:
     image: sourceplusplus/spp-platform:latest
     container_name: spp-platform
@@ -39,9 +39,9 @@ services:
     ports:
       - "11800:11800"
       - "12800:12800"
-      - "5106:5106"
+#      - "5106:5106"
     environment:
       - SPP_PLATFORM_HOST=spp-platform
       - SPP_PLATFORM_PORT=5460
       - SPP_DISABLE_TLS=true
-      - JAVA_OPTS=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5106
+#      - JAVA_OPTS=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5106
