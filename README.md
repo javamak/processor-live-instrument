@@ -12,6 +12,11 @@ This project provides additional backend processing to the [Source++](https://gi
 
 - SkyWalking OAP
   - Version >= 8.0.0
+- Modules
+  - `CoreModule`
+  - `AnalyzerModule`
+  - `StorageModule`
+  - `LogAnalyzerModule`
 
 # Features
 
