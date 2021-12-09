@@ -5,7 +5,7 @@ spp:
   quiet_mode: false
 skywalking:
   logging:
-    level: "DEBUG"
+    level: "INFO"
   agent:
     keep_tracing: true
     is_cache_enhanced_class: true
