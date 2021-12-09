@@ -4,11 +4,11 @@
 ![GitHub release](https://img.shields.io/github/v/release/sourceplusplus/processor-instrument?include_prereleases)
 [![Build](https://github.com/sourceplusplus/processor-instrument/actions/workflows/build.yml/badge.svg)](https://github.com/sourceplusplus/processor-instrument/actions/workflows/build.yml)
 
-# What is this?
+## What is this?
 
 This project provides additional backend processing to the [Source++](https://github.com/sourceplusplus/live-platform) open-source live coding platform.
 
-# Requirements
+## Requirements
 
 - SkyWalking OAP
   - Version >= 8.0.0
@@ -18,11 +18,9 @@ This project provides additional backend processing to the [Source++](https://gi
   - `StorageModule`
   - `LogAnalyzerModule`
 
-# Features
+## Features
 
 Introduces **Live Instruments**, ephemeral production debugging devices for live applications. Live Instruments come in a number of types described below.
-
-## Live Instruments
 
 ### Live Breakpoint
 
@@ -43,13 +41,3 @@ Introduces **Live Instruments**, ephemeral production debugging devices for live
 
   ![live-log](https://user-images.githubusercontent.com/3278877/136304738-d46c2796-4dd3-45a3-81bb-5692547c1c71.gif)  
 </details>
-
-# Requirements
-
-- SkyWalking OAP
-  - Version >= 8.0.0
-- Modules
-  - `CoreModule`
-  - `AnalyzerModule`
-  - `StorageModule`
-  - `LogAnalyzerModule`
