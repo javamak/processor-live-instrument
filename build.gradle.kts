@@ -53,7 +53,7 @@ dependencies {
     kapt("io.vertx:vertx-codegen:$vertxVersion:processor")
     annotationProcessor("io.vertx:vertx-service-proxy:$vertxVersion")
     compileOnly("io.vertx:vertx-tcp-eventbus-bridge:$vertxVersion")
-    compileOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.2")
+    compileOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.0")
     compileOnly("io.vertx:vertx-core:$vertxVersion")
     compileOnly("io.vertx:vertx-lang-kotlin:$vertxVersion")
     compileOnly("io.vertx:vertx-lang-kotlin-coroutines:$vertxVersion")
