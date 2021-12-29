@@ -5,6 +5,6 @@ pluginManagement {
         id 'org.jetbrains.kotlin.kapt' version kotlinVersion apply false
         id 'com.avast.gradle.docker-compose' version "0.14.11" apply false
         id 'io.gitlab.arturbosch.detekt' version "1.19.0" apply false
-        id 'com.github.johnrengelman.shadow' version "7.1.1"
+        id 'com.github.johnrengelman.shadow' version "7.1.2"
     }
 }
