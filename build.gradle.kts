@@ -80,7 +80,7 @@ dependencies {
     testImplementation("io.vertx:vertx-lang-kotlin-coroutines:$vertxVersion")
     testImplementation("com.github.sourceplusplus.protocol:protocol:$protocolVersion")
     testImplementation("io.vertx:vertx-tcp-eventbus-bridge:$vertxVersion")
-    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.2")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.0")
     testImplementation(files(".ext/vertx-service-proxy-4.0.2.jar"))
     testImplementation("org.slf4j:slf4j-api:1.7.32")
     testImplementation("org.slf4j:slf4j-simple:1.7.32")
