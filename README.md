@@ -8,16 +8,6 @@
 
 This project provides additional backend processing to the [Source++](https://github.com/sourceplusplus/live-platform) open-source live coding platform.
 
-## Requirements
-
-- SkyWalking OAP
-  - Version >= 8.0.0
-- Modules
-  - `CoreModule`
-  - `AnalyzerModule`
-  - `StorageModule`
-  - `LogAnalyzerModule`
-
 ## Features
 
 Introduces **Live Instruments**, ephemeral production debugging devices for live applications. Live Instruments come in a number of types described below.
@@ -41,6 +31,16 @@ Introduces **Live Instruments**, ephemeral production debugging devices for live
 
   ![live-log](https://user-images.githubusercontent.com/3278877/136304738-d46c2796-4dd3-45a3-81bb-5692547c1c71.gif)  
 </details>
+
+## Requirements
+
+- SkyWalking OAP
+  - Version >= 8.0.0
+- Modules
+  - `CoreModule`
+  - `AnalyzerModule`
+  - `StorageModule`
+  - `LogAnalyzerModule`
 
 ## Development
 
