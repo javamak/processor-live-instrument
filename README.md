@@ -41,3 +41,26 @@ Introduces **Live Instruments**, ephemeral production debugging devices for live
 
   ![live-log](https://user-images.githubusercontent.com/3278877/136304738-d46c2796-4dd3-45a3-81bb-5692547c1c71.gif)  
 </details>
+
+## Development
+
+### Prerequisites
+
+- Git
+- JDK 11+
+- Docker
+- Docker Compose
+
+### Build
+
+```sh
+git clone https://github.com/sourceplusplus/processor-log-summary
+cd processor-log-summary
+./gradlew build
+```
+
+### Test
+
+```sh
+./gradlew assembleUp test -Dtest.profile=integration
+```
