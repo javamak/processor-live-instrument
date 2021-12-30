@@ -54,8 +54,8 @@ Introduces **Live Instruments**, ephemeral production debugging devices for live
 ### Build
 
 ```sh
-git clone https://github.com/sourceplusplus/processor-log-summary
-cd processor-log-summary
+git clone https://github.com/sourceplusplus/processor-live-instrument
+cd processor-live-instrument
 ./gradlew build
 ```
 
