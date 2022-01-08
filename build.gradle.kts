@@ -37,7 +37,6 @@ dependencies {
     compileOnly("org.apache.skywalking:apm-network:$skywalkingVersion") { isTransitive = false }
     compileOnly("org.apache.skywalking:library-server:$skywalkingVersion") { isTransitive = false }
     compileOnly("org.apache.skywalking:library-module:$skywalkingVersion") { isTransitive = false }
-    compileOnly("org.apache.skywalking:log-analyzer:$skywalkingVersion") { isTransitive = false }
     compileOnly("org.apache.skywalking:telemetry-api:$skywalkingVersion") { isTransitive = false }
     compileOnly("org.apache.skywalking:server-core:$skywalkingVersion") { isTransitive = false }
     compileOnly("org.apache.skywalking:skywalking-sharing-server-plugin:$skywalkingVersion") { isTransitive = false }
@@ -46,6 +45,7 @@ dependencies {
     compileOnly("org.apache.skywalking:agent-analyzer:$skywalkingVersion") { isTransitive = false }
     compileOnly("org.apache.skywalking:event-analyzer:$skywalkingVersion") { isTransitive = false }
     compileOnly("org.apache.skywalking:meter-analyzer:$skywalkingVersion") { isTransitive = false }
+    compileOnly("org.apache.skywalking:log-analyzer:$skywalkingVersion") { isTransitive = false }
     compileOnly("io.vertx:vertx-service-discovery:$vertxVersion")
     compileOnly("io.vertx:vertx-service-proxy:$vertxVersion")
     compileOnly("io.vertx:vertx-codegen:$vertxVersion")
@@ -84,6 +84,10 @@ dependencies {
     testImplementation(files(".ext/vertx-service-proxy-4.0.2.jar"))
     testImplementation("org.slf4j:slf4j-api:1.7.32")
     testImplementation("org.slf4j:slf4j-simple:1.7.32")
+    testImplementation("com.google.guava:guava:31.0.1-jre")
+    testImplementation("org.apache.skywalking:agent-analyzer:$skywalkingVersion")
+    testImplementation("org.apache.skywalking:log-analyzer:$skywalkingVersion")
+    testImplementation("io.vertx:vertx-lang-kotlin:$vertxVersion")
 }
 
 tasks.getByName<com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar>("shadowJar") {
