@@ -38,6 +38,90 @@ class LiveInstrumentAnalysis : AnalysisListenerFactory, LogAnalysisListenerFacto
         const val INSTANCE_FIELD = "spp.field:"
         const val STACK_TRACE = "spp.stack-trace:"
         const val BREAKPOINT = "spp.breakpoint:"
+
+        private fun toLiveVariable(varName: String, scope: LiveVariableScope?, varData: JsonObject): LiveVariable {
+            val liveClass = varData.getString("@class")
+            val liveIdentity = varData.getString("@identity")
+
+            val innerVars = mutableListOf<LiveVariable>()
+            varData.fieldNames().forEach {
+                if (!it.startsWith("@")) {
+                    if (varData.get<Any>(it) is JsonObject) {
+                        innerVars.add(toLiveVariable(it, null, varData.getJsonObject(it)))
+                    } else {
+                        innerVars.add(LiveVariable(it, varData[it]))
+                    }
+                }
+            }
+            return LiveVariable(varName, innerVars, scope = scope, liveClazz = liveClass, liveIdentity = liveIdentity)
+        }
+
+        fun transformRawBreakpointHit(bpData: JsonObject): LiveBreakpointHit {
+            val varDatum = bpData.getJsonArray("variables")
+            val variables = mutableListOf<LiveVariable>()
+            var thisVar: LiveVariable? = null
+            for (i in varDatum.list.indices) {
+                val varData = varDatum.getJsonObject(i)
+                val varName = varData.getJsonObject("data").fieldNames().first()
+                val outerVal = JsonObject(varData.getJsonObject("data").getString(varName))
+                val scope = LiveVariableScope.valueOf(varData.getString("scope"))
+
+                val liveVar = if (outerVal.get<Any>(varName) is JsonObject) {
+                    toLiveVariable(varName, scope, outerVal.getJsonObject(varName))
+                } else {
+                    LiveVariable(
+                        varName, outerVal[varName],
+                        scope = scope,
+                        liveClazz = outerVal.getString("@class"),
+                        liveIdentity = outerVal.getString("@identity")
+                    )
+                }
+                variables.add(liveVar)
+
+                if (liveVar.name == "this") {
+                    thisVar = liveVar
+                }
+            }
+
+            //put instance variables in "this"
+            if (thisVar?.value is List<*>) {
+                val thisVariables = thisVar.value as MutableList<LiveVariable>?
+                variables.filter { it.scope == LiveVariableScope.INSTANCE_FIELD }.forEach { v ->
+                    thisVariables?.removeIf { rem ->
+                        if (rem.name == v.name) {
+                            variables.removeIf { it.name == v.name }
+                            true
+                        } else {
+                            false
+                        }
+                    }
+                    thisVariables?.add(v)
+                }
+            }
+
+            val stackTrace = LiveStackTrace.fromString(bpData.getString("stack_trace"))!!
+            //correct unknown source
+            if (stackTrace.first().sourceAsLineNumber() == null) {
+                val language = stackTrace.elements[1].source.substringAfter(".").substringBefore(":")
+                val actualSource = "${
+                    bpData.getString("location_source").substringAfterLast(".")
+                }.$language:${bpData.getInteger("location_line")}"
+                val correctedElement = LiveStackTraceElement(stackTrace.first().method, actualSource)
+                stackTrace.elements.removeAt(0)
+                stackTrace.elements.add(0, correctedElement)
+            }
+            //add live variables
+            stackTrace.first().variables.addAll(variables)
+
+            return LiveBreakpointHit(
+                bpData.getString("breakpoint_id"),
+                bpData.getString("trace_id"),
+                Instant.fromEpochMilliseconds(bpData.getLong("occurred_at")),
+                bpData.getString("service_instance"),
+                bpData.getString("service"),
+                stackTrace
+            )
+        }
     }
 
     private var logPublishRateLimit = 1000
@@ -204,90 +288,6 @@ class LiveInstrumentAnalysis : AnalysisListenerFactory, LogAnalysisListenerFacto
                     JsonObject.mapFrom(transformRawBreakpointHit(JsonObject.mapFrom(bpHitObj)))
                 )
             }
-        }
-
-        private fun toLiveVariable(varName: String, scope: LiveVariableScope?, varData: JsonObject): LiveVariable {
-            val liveClass = varData.getString("@class")
-            val liveIdentity = varData.getString("@identity")
-
-            val innerVars = mutableListOf<LiveVariable>()
-            varData.fieldNames().forEach {
-                if (!it.startsWith("@")) {
-                    if (varData.get<Any>(it) is JsonObject) {
-                        innerVars.add(toLiveVariable(it, null, varData.getJsonObject(it)))
-                    } else {
-                        innerVars.add(LiveVariable(it, varData[it]))
-                    }
-                }
-            }
-            return LiveVariable(varName, innerVars, scope = scope, liveClazz = liveClass, liveIdentity = liveIdentity)
-        }
-
-        fun transformRawBreakpointHit(bpData: JsonObject): LiveBreakpointHit {
-            val varDatum = bpData.getJsonArray("variables")
-            val variables = mutableListOf<LiveVariable>()
-            var thisVar: LiveVariable? = null
-            for (i in varDatum.list.indices) {
-                val varData = varDatum.getJsonObject(i)
-                val varName = varData.getJsonObject("data").fieldNames().first()
-                val outerVal = JsonObject(varData.getJsonObject("data").getString(varName))
-                val scope = LiveVariableScope.valueOf(varData.getString("scope"))
-
-                val liveVar = if (outerVal.get<Any>(varName) is JsonObject) {
-                    toLiveVariable(varName, scope, outerVal.getJsonObject(varName))
-                } else {
-                    LiveVariable(
-                        varName, outerVal[varName],
-                        scope = scope,
-                        liveClazz = outerVal.getString("@class"),
-                        liveIdentity = outerVal.getString("@identity")
-                    )
-                }
-                variables.add(liveVar)
-
-                if (liveVar.name == "this") {
-                    thisVar = liveVar
-                }
-            }
-
-            //put instance variables in "this"
-            if (thisVar?.value is List<*>) {
-                val thisVariables = thisVar.value as MutableList<LiveVariable>?
-                variables.filter { it.scope == LiveVariableScope.INSTANCE_FIELD }.forEach { v ->
-                    thisVariables?.removeIf { rem ->
-                        if (rem.name == v.name) {
-                            variables.removeIf { it.name == v.name }
-                            true
-                        } else {
-                            false
-                        }
-                    }
-                    thisVariables?.add(v)
-                }
-            }
-
-            val stackTrace = LiveStackTrace.fromString(bpData.getString("stack_trace"))!!
-            //correct unknown source
-            if (stackTrace.first().sourceAsLineNumber() == null) {
-                val language = stackTrace.elements[1].source.substringAfter(".").substringBefore(":")
-                val actualSource = "${
-                    bpData.getString("location_source").substringAfterLast(".")
-                }.$language:${bpData.getInteger("location_line")}"
-                val correctedElement = LiveStackTraceElement(stackTrace.first().method, actualSource)
-                stackTrace.elements.removeAt(0)
-                stackTrace.elements.add(0, correctedElement)
-            }
-            //add live variables
-            stackTrace.first().variables.addAll(variables)
-
-            return LiveBreakpointHit(
-                bpData.getString("breakpoint_id"),
-                bpData.getString("trace_id"),
-                Instant.fromEpochMilliseconds(bpData.getLong("occurred_at")),
-                bpData.getString("service_instance"),
-                bpData.getString("service"),
-                stackTrace
-            )
         }
     }
 
