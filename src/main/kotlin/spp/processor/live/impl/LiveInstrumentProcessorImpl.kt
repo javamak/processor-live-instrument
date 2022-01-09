@@ -26,6 +26,7 @@ import org.apache.skywalking.oap.server.core.storage.query.IMetadataQueryDAO
 import org.joor.Reflect
 import org.slf4j.LoggerFactory
 import spp.processor.InstrumentProcessor
+import spp.processor.common.SkyWalkingStorage.Companion.METRIC_PREFIX
 import spp.processor.live.LiveInstrumentProcessor
 import spp.protocol.instrument.DurationStep
 import spp.protocol.instrument.LiveSourceLocation
@@ -67,7 +68,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentProcessor
         val meterConfig = MeterConfig()
         when (liveMeter.meterType) {
             MeterType.COUNT -> {
-                meterConfig.metricPrefix = "spp"
+                meterConfig.metricPrefix = METRIC_PREFIX
                 meterConfig.metricsRules = mutableListOf(
                     MeterConfig.Rule().apply {
                         val idVariable = liveMeter.toMetricIdWithoutPrefix()
@@ -77,7 +78,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentProcessor
                 )
             }
             MeterType.GAUGE -> {
-                meterConfig.metricPrefix = "spp"
+                meterConfig.metricPrefix = METRIC_PREFIX
                 meterConfig.metricsRules = mutableListOf(
                     MeterConfig.Rule().apply {
                         val idVariable = liveMeter.toMetricIdWithoutPrefix()
@@ -87,7 +88,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentProcessor
                 )
             }
             MeterType.HISTOGRAM -> {
-                meterConfig.metricPrefix = "spp"
+                meterConfig.metricPrefix = METRIC_PREFIX
                 meterConfig.metricsRules = mutableListOf(
                     MeterConfig.Rule().apply {
                         val idVariable = liveMeter.toMetricIdWithoutPrefix()
