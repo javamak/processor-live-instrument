@@ -29,8 +29,7 @@ repositories {
 }
 
 dependencies {
-    implementation("org.jooq:joor:$joorVersion")
-
+    compileOnly("org.jooq:joor:$joorVersion")
     compileOnly("com.github.sourceplusplus:processor-dependencies:$processorDependenciesVersion")
     compileOnly("com.github.sourceplusplus.protocol:protocol:$protocolVersion")
     compileOnly("org.jetbrains.kotlin:kotlin-reflect:$kotlinVersion")
