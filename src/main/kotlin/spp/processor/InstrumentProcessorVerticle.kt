@@ -1,7 +1,8 @@
 package spp.processor
 
 import com.fasterxml.jackson.core.JsonGenerator
-import com.fasterxml.jackson.databind.*
+import com.fasterxml.jackson.databind.JsonSerializer
+import com.fasterxml.jackson.databind.SerializerProvider
 import com.fasterxml.jackson.databind.module.SimpleModule
 import io.vertx.core.json.JsonObject
 import io.vertx.core.json.jackson.DatabindCodec
@@ -13,6 +14,7 @@ import io.vertx.serviceproxy.ServiceBinder
 import kotlinx.datetime.Instant
 import org.apache.skywalking.oap.server.core.analysis.metrics.DataTable
 import org.slf4j.LoggerFactory
+import spp.processor.common.FeedbackProcessor
 import spp.processor.common.FeedbackProcessor.Companion.INSTANCE_ID
 import spp.processor.live.LiveInstrumentProcessor
 import spp.processor.live.LiveViewProcessor
@@ -66,7 +68,7 @@ class InstrumentProcessorVerticle : CoroutineVerticle() {
             LiveInstrumentProcessor::class.java,
             JsonObject().put("INSTANCE_ID", INSTANCE_ID)
         )
-        InstrumentProcessor.discovery.publish(liveInstrumentRecord) {
+        FeedbackProcessor.discovery.publish(liveInstrumentRecord) {
             if (it.succeeded()) {
                 log.info("Live instrument processor published")
             } else {
@@ -84,7 +86,7 @@ class InstrumentProcessorVerticle : CoroutineVerticle() {
             LiveViewProcessor::class.java,
             JsonObject().put("INSTANCE_ID", INSTANCE_ID)
         )
-        InstrumentProcessor.discovery.publish(liveViewRecord) {
+        FeedbackProcessor.discovery.publish(liveViewRecord) {
             if (it.succeeded()) {
                 log.info("Live view processor published")
             } else {
@@ -96,14 +98,14 @@ class InstrumentProcessorVerticle : CoroutineVerticle() {
 
     override suspend fun stop() {
         log.info("Stopping InstrumentProcessorVerticle")
-        InstrumentProcessor.discovery.unpublish(liveInstrumentRecord!!.registration).onComplete {
+        FeedbackProcessor.discovery.unpublish(liveInstrumentRecord!!.registration).onComplete {
             if (it.succeeded()) {
                 log.info("Live instrument processor unpublished")
             } else {
                 log.error("Failed to unpublish live instrument processor", it.cause())
             }
         }.await()
-        InstrumentProcessor.discovery.unpublish(liveViewRecord!!.registration).onComplete {
+        FeedbackProcessor.discovery.unpublish(liveViewRecord!!.registration).onComplete {
             if (it.succeeded()) {
                 log.info("Live view processor unpublished")
             } else {

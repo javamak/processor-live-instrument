@@ -4,7 +4,7 @@ import io.vertx.core.json.JsonArray
 import io.vertx.core.json.JsonObject
 import org.apache.skywalking.oap.server.core.analysis.metrics.WithMetadata
 import org.apache.skywalking.oap.server.core.exporter.ExportEvent
-import spp.processor.InstrumentProcessor
+import spp.processor.common.FeedbackProcessor
 import spp.processor.live.impl.view.util.EntityNaming
 import spp.processor.live.impl.view.util.ViewSubscriber
 
@@ -48,12 +48,12 @@ abstract class AbstractLiveView {
                     }
                     sub.waitingEvents.clear()
 
-                    InstrumentProcessor.vertx.eventBus().send(
+                    FeedbackProcessor.vertx.eventBus().send(
                         sub.consumer.address(),
                         JsonObject().put("metrics", multiMetrics).put("multiMetrics", true)
                     )
                 } else {
-                    InstrumentProcessor.vertx.eventBus().send(
+                    FeedbackProcessor.vertx.eventBus().send(
                         sub.consumer.address(),
                         jsonEvent.getJsonObject("metrics").put("multiMetrics", false)
                     )

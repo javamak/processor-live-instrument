@@ -17,6 +17,7 @@ import org.apache.skywalking.oap.server.analyzer.provider.trace.parser.listener.
 import org.apache.skywalking.oap.server.library.module.ModuleManager
 import org.slf4j.LoggerFactory
 import spp.processor.InstrumentProcessor
+import spp.processor.common.FeedbackProcessor
 import spp.protocol.artifact.exception.LiveStackTrace
 import spp.protocol.artifact.exception.LiveStackTraceElement
 import spp.protocol.artifact.exception.sourceAsLineNumber
@@ -133,7 +134,7 @@ class LiveInstrumentAnalysis : AnalysisListenerFactory, LogAnalysisListenerFacto
 
     init {
         //todo: map of rate limit per log id
-        InstrumentProcessor.vertx.eventBus().consumer<Int>(ProcessorAddress.SET_LOG_PUBLISH_RATE_LIMIT.address) {
+        FeedbackProcessor.vertx.eventBus().consumer<Int>(ProcessorAddress.SET_LOG_PUBLISH_RATE_LIMIT.address) {
             logPublishRateLimit = it.body()
         }
     }
@@ -185,7 +186,7 @@ class LiveInstrumentAnalysis : AnalysisListenerFactory, LogAnalysisListenerFacto
                         )
                         .put("total", -1)
                 )
-            InstrumentProcessor.vertx.eventBus().publish(ProcessorAddress.LOG_HIT.address, logHit)
+            FeedbackProcessor.vertx.eventBus().publish(ProcessorAddress.LOG_HIT.address, logHit)
             logPublishCache.put(logId!!, System.currentTimeMillis())
             return this
         }
@@ -282,7 +283,7 @@ class LiveInstrumentAnalysis : AnalysisListenerFactory, LogAnalysisListenerFacto
                     "location_source" to locationSources[it]!!,
                     "location_line" to locationLines[it]!!
                 )
-                InstrumentProcessor.vertx.eventBus().publish(
+                FeedbackProcessor.vertx.eventBus().publish(
                     BREAKPOINT_HIT.address,
                     //todo: don't need to map twice
                     JsonObject.mapFrom(transformRawBreakpointHit(JsonObject.mapFrom(bpHitObj)))

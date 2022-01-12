@@ -13,7 +13,7 @@ import io.vertx.kotlin.coroutines.dispatcher
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import org.slf4j.LoggerFactory
-import spp.processor.InstrumentProcessor
+import spp.processor.common.FeedbackProcessor
 import spp.processor.live.LiveViewProcessor
 import spp.processor.live.impl.view.LiveActivityView
 import spp.processor.live.impl.view.LiveLogsView
@@ -48,7 +48,7 @@ class LiveViewProcessorImpl : CoroutineVerticle(), LiveViewProcessor {
             BridgeEventType.REGISTER.name.toLowerCase(),
             MARKER_DISCONNECTED.address,
             JsonObject(),
-            InstrumentProcessor.tcpSocket
+            FeedbackProcessor.tcpSocket
         )
 
         vertx.eventBus().consumer<JsonObject>("local." + MARKER_DISCONNECTED.address) {

@@ -10,8 +10,8 @@ import kotlinx.datetime.minus
 import org.apache.skywalking.oap.server.core.exporter.ExportEvent
 import org.apache.skywalking.oap.server.core.exporter.MetricValuesExportService
 import org.slf4j.LoggerFactory
-import spp.processor.InstrumentProcessor
 import spp.processor.InstrumentProcessorVerticle.Companion.liveInstrumentProcessor
+import spp.processor.common.FeedbackProcessor
 import spp.processor.live.impl.view.util.EntitySubscribersCache
 import spp.processor.live.impl.view.util.MetricTypeSubscriptionCache
 import spp.protocol.instrument.DurationStep
@@ -84,7 +84,7 @@ class LiveMeterView(private val subscriptionCache: MetricTypeSubscriptionCache) 
                 val day = dayPromise.future().result()
 
                 subbedMetrics.values.flatten().forEach {
-                    InstrumentProcessor.vertx.eventBus().send(
+                    FeedbackProcessor.vertx.eventBus().send(
                         it.consumer.address(),
                         JsonObject()
                             .put("last_minute", minute.getJsonArray("values").getValue(0))

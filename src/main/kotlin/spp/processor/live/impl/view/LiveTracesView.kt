@@ -1,9 +1,5 @@
 package spp.processor.live.impl.view
 
-import spp.protocol.artifact.trace.Trace
-import spp.protocol.artifact.trace.TraceSpan
-import spp.protocol.artifact.trace.TraceSpanLogEntry
-import spp.protocol.artifact.trace.TraceSpanRef
 import io.vertx.core.json.Json
 import io.vertx.core.json.JsonObject
 import kotlinx.datetime.toJavaInstant
@@ -16,8 +12,12 @@ import org.apache.skywalking.oap.server.analyzer.provider.trace.parser.listener.
 import org.apache.skywalking.oap.server.analyzer.provider.trace.parser.listener.EntryAnalysisListener
 import org.apache.skywalking.oap.server.library.module.ModuleManager
 import org.slf4j.LoggerFactory
-import spp.processor.InstrumentProcessor
+import spp.processor.common.FeedbackProcessor
 import spp.processor.live.impl.view.util.MetricTypeSubscriptionCache
+import spp.protocol.artifact.trace.Trace
+import spp.protocol.artifact.trace.TraceSpan
+import spp.protocol.artifact.trace.TraceSpanLogEntry
+import spp.protocol.artifact.trace.TraceSpanRef
 import java.time.Instant
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatterBuilder
@@ -95,7 +95,7 @@ class LiveTracesView(private val subscriptionCache: MetricTypeSubscriptionCache)
                         .put("entityId", entityId)
                         .put("timeBucket", formatter.format(trace.start.toJavaInstant()))
                         .put("trace", JsonObject.mapFrom(trace))
-                    InstrumentProcessor.vertx.eventBus().send(sub.consumer.address(), event)
+                    FeedbackProcessor.vertx.eventBus().send(sub.consumer.address(), event)
                 }
             }
         }

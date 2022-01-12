@@ -108,9 +108,7 @@ tasks.getByName<com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar>("sha
     exclude("xsd/**")
     exclude("migrations/**")
     exclude("io/vertx/serviceproxy/**")
-    exclude("org/jooq/**")
 
-    relocate("org.joor", "spp.processor.instrument.common.org.joor")
     minimize()
 
     dependencyFilter.exclude {
