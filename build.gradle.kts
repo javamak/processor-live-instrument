@@ -48,7 +48,7 @@ dependencies {
     compileOnly("io.vertx:vertx-service-discovery:$vertxVersion")
     compileOnly("io.vertx:vertx-service-proxy:$vertxVersion")
     compileOnly("io.vertx:vertx-codegen:$vertxVersion")
-    compileOnly("org.jetbrains.kotlinx:kotlinx-datetime:0.3.1")
+    compileOnly("org.jetbrains.kotlinx:kotlinx-datetime:0.3.2")
     kapt("io.vertx:vertx-codegen:$vertxVersion:processor")
     annotationProcessor("io.vertx:vertx-service-proxy:$vertxVersion")
     compileOnly("io.vertx:vertx-tcp-eventbus-bridge:$vertxVersion")
