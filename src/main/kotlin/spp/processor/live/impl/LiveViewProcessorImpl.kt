@@ -101,9 +101,7 @@ class LiveViewProcessorImpl : CoroutineVerticle(), LiveViewProcessor {
 
                         //send first event immediately (if available)
                         GlobalScope.launch(vertx.dispatcher()) {
-                            //todo: location should be coming from subscription, as is functions as service/serviceInstance wildcard
-                            val location = LiveSourceLocation("", 0)
-                            meterView.sendMeterEvent(it, location, subscriptionCache[it]!!, -1)
+                            meterView.sendMeterEvent(it, sub.artifactLocation, subscriptionCache[it]!!, -1)
                         }
                     }
                 } else {
@@ -145,6 +143,7 @@ class LiveViewProcessorImpl : CoroutineVerticle(), LiveViewProcessor {
                                     unsubbedUser!!.subscription.subscriptionId,
                                     unsubbedUser!!.subscription.entityIds,
                                     unsubbedUser!!.subscription.artifactQualifiedName,
+                                    unsubbedUser!!.subscription.artifactLocation,
                                     unsubbedUser!!.subscription.liveViewConfig
                                 )
                             )
