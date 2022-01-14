@@ -82,7 +82,7 @@ dependencies {
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.0")
     testImplementation(files(".ext/vertx-service-proxy-4.0.2.jar"))
     testImplementation("org.slf4j:slf4j-api:1.7.32")
-    testImplementation("org.slf4j:slf4j-simple:1.7.32")
+    testImplementation("org.slf4j:slf4j-simple:1.7.33")
     testImplementation("com.google.guava:guava:31.0.1-jre")
     testImplementation("org.apache.skywalking:agent-analyzer:$skywalkingVersion")
     testImplementation("org.apache.skywalking:log-analyzer:$skywalkingVersion")
