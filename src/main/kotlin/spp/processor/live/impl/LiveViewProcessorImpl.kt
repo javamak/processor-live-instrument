@@ -145,6 +145,7 @@ class LiveViewProcessorImpl : CoroutineVerticle(), LiveViewProcessor {
                                     unsubbedUser!!.subscription.subscriptionId,
                                     unsubbedUser!!.subscription.entityIds,
                                     unsubbedUser!!.subscription.artifactQualifiedName,
+                                    unsubbedUser!!.subscription.artifactLocation,
                                     unsubbedUser!!.subscription.liveViewConfig
                                 )
                             )
