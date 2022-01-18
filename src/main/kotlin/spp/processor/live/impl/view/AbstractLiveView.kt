@@ -42,7 +42,7 @@ abstract class AbstractLiveView {
                     sub.waitingEvents.forEach {
                         multiMetrics.add(
                             JsonObject.mapFrom(it).getJsonObject("metrics")
-                                .put("artifactQualifiedName", sub.subscription.artifactQualifiedName)
+                                .put("artifactQualifiedName", JsonObject.mapFrom(sub.subscription.artifactQualifiedName))
                                 .put("entityId", EntityNaming.getEntityName((it.metrics as WithMetadata).meta))
                         )
                     }

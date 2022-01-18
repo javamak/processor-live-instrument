@@ -23,5 +23,7 @@ interface LiveViewProcessor {
 
     fun clearLiveViewSubscriptions(subscriberId: String, handler: Handler<AsyncResult<JsonObject>>)
 
+    fun getLiveViewSubscriptions(subscriberId: String, handler: Handler<AsyncResult<JsonObject>>)
+
     fun getLiveViewSubscriptionStats(handler: Handler<AsyncResult<JsonObject>>)
 }

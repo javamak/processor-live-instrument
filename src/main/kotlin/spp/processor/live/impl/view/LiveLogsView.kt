@@ -49,7 +49,7 @@ class LiveLogsView(private val subscriptionCache: MetricTypeSubscriptionCache) :
                     val event = JsonObject()
                         .put("type", "LOGS")
                         .put("multiMetrics", false)
-                        .put("artifactQualifiedName", sub.subscription.artifactQualifiedName)
+                        .put("artifactQualifiedName", JsonObject.mapFrom(sub.subscription.artifactQualifiedName))
                         .put("entityId", logPattern)
                         .put("timeBucket", formatter.format(log.timestamp.toJavaInstant()))
                         .put("log", JsonObject.mapFrom(log).apply { remove("formattedMessage") })
