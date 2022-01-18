@@ -187,6 +187,20 @@ class LiveViewProcessorImpl : CoroutineVerticle(), LiveViewProcessor {
         }
     }
 
+    override fun getLiveViewSubscriptions(subscriberId: String, handler: Handler<AsyncResult<JsonObject>>) {
+        val viewSubscriptions = mutableListOf<LiveViewSubscription>()
+        subscriptionCache.forEach {
+            it.value.forEach {
+                it.value.forEach {
+                    if (it.subscriberId == subscriberId) {
+                        viewSubscriptions.add(it.subscription)
+                    }
+                }
+            }
+        }
+        handler.handle(Future.succeededFuture(JsonObject().put("body", JsonArray(Json.encode(viewSubscriptions)))))
+    }
+
     override fun getLiveViewSubscriptionStats(handler: Handler<AsyncResult<JsonObject>>) {
         val subStats = JsonObject()
         subscriptionCache.forEach { type ->
