@@ -3,18 +3,18 @@ package spp.processor.live.impl
 import io.vertx.core.AsyncResult
 import io.vertx.core.Future
 import io.vertx.core.Handler
-import io.vertx.core.json.Json
-import io.vertx.core.json.JsonArray
+import io.vertx.core.eventbus.impl.MessageImpl
 import io.vertx.core.json.JsonObject
+import io.vertx.ext.auth.impl.jose.JWT
 import io.vertx.ext.bridge.BridgeEventType
 import io.vertx.ext.eventbus.bridge.tcp.impl.protocol.FrameHelper
 import io.vertx.kotlin.coroutines.CoroutineVerticle
 import io.vertx.kotlin.coroutines.dispatcher
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
+import org.joor.Reflect
 import org.slf4j.LoggerFactory
 import spp.processor.common.FeedbackProcessor
-import spp.processor.live.LiveViewProcessor
 import spp.processor.live.impl.view.LiveActivityView
 import spp.processor.live.impl.view.LiveLogsView
 import spp.processor.live.impl.view.LiveMeterView
@@ -22,13 +22,13 @@ import spp.processor.live.impl.view.LiveTracesView
 import spp.processor.live.impl.view.util.EntitySubscribersCache
 import spp.processor.live.impl.view.util.MetricTypeSubscriptionCache
 import spp.processor.live.impl.view.util.ViewSubscriber
-import spp.protocol.instrument.LiveSourceLocation
 import spp.protocol.platform.PlatformAddress.MARKER_DISCONNECTED
 import spp.protocol.processor.ProcessorAddress.VIEW_SUBSCRIPTION_EVENT
+import spp.protocol.service.live.LiveViewService
 import spp.protocol.view.LiveViewSubscription
 import java.util.*
 
-class LiveViewProcessorImpl : CoroutineVerticle(), LiveViewProcessor {
+class LiveViewProcessorImpl : CoroutineVerticle(), LiveViewService {
 
     companion object {
         private val log = LoggerFactory.getLogger(LiveViewProcessorImpl::class.java)
@@ -63,14 +63,13 @@ class LiveViewProcessorImpl : CoroutineVerticle(), LiveViewProcessor {
         }
     }
 
-    override fun addLiveViewSubscription(
+    fun addLiveViewSubscription(
         subscriberId: String,
-        subscription: JsonObject,
-        handler: Handler<AsyncResult<JsonObject>>
+        subscription: LiveViewSubscription,
+        handler: Handler<AsyncResult<LiveViewSubscription>>
     ) {
         val address = "view." + UUID.randomUUID().toString()
-        val sub = Json.decodeValue(subscription.toString(), LiveViewSubscription::class.java)
-            .copy(subscriptionId = address)
+        val sub = subscription.copy(subscriptionId = address)
 
         val consumer = vertx.eventBus().consumer<JsonObject>(address)
         consumer.handler {
@@ -114,14 +113,14 @@ class LiveViewProcessorImpl : CoroutineVerticle(), LiveViewProcessor {
                     }
                 }
 
-                handler.handle(Future.succeededFuture(JsonObject.mapFrom(sub)))
+                handler.handle(Future.succeededFuture(sub))
             } else {
                 handler.handle(Future.failedFuture(it.cause()))
             }
         }
     }
 
-    override fun removeLiveViewSubscription(
+    fun removeLiveViewSubscription(
         subscriberId: String, subscriptionId: String, handler: Handler<AsyncResult<JsonObject>>
     ) {
         var unsubbedUser: ViewSubscriber? = null
@@ -158,7 +157,7 @@ class LiveViewProcessorImpl : CoroutineVerticle(), LiveViewProcessor {
         }
     }
 
-    override fun clearLiveViewSubscriptions(subscriberId: String, handler: Handler<AsyncResult<JsonObject>>) {
+    fun clearLiveViewSubscriptions(subscriberId: String, handler: Handler<AsyncResult<List<LiveViewSubscription>>>) {
         val removedSubs = mutableSetOf<ViewSubscriber>()
         subscriptionCache.entries.removeIf {
             it.value.entries.removeIf {
@@ -176,18 +175,13 @@ class LiveViewProcessorImpl : CoroutineVerticle(), LiveViewProcessor {
             removedSubs.forEach {
                 it.consumer.unregister()
             }
-            handler.handle(
-                Future.succeededFuture(
-                    JsonObject()
-                        .put("body", JsonArray(Json.encode(removedSubs.map { it.subscription })))
-                )
-            )
+            handler.handle(Future.succeededFuture(removedSubs.map { it.subscription }))
         } else {
-            handler.handle(Future.succeededFuture(JsonObject().put("body", JsonArray())))
+            handler.handle(Future.succeededFuture(emptyList()))
         }
     }
 
-    override fun getLiveViewSubscriptions(subscriberId: String, handler: Handler<AsyncResult<JsonObject>>) {
+    fun getLiveViewSubscriptions(subscriberId: String, handler: Handler<AsyncResult<List<LiveViewSubscription>>>) {
         val viewSubscriptions = mutableListOf<LiveViewSubscription>()
         subscriptionCache.forEach {
             it.value.forEach {
@@ -198,10 +192,10 @@ class LiveViewProcessorImpl : CoroutineVerticle(), LiveViewProcessor {
                 }
             }
         }
-        handler.handle(Future.succeededFuture(JsonObject().put("body", JsonArray(Json.encode(viewSubscriptions)))))
+        handler.handle(Future.succeededFuture(viewSubscriptions))
     }
 
-    override fun getLiveViewSubscriptionStats(handler: Handler<AsyncResult<JsonObject>>) {
+    fun getLiveViewSubscriptionStats(handler: Handler<AsyncResult<JsonObject>>) {
         val subStats = JsonObject()
         subscriptionCache.forEach { type ->
             subStats.put(type.key, JsonObject())
@@ -214,5 +208,39 @@ class LiveViewProcessorImpl : CoroutineVerticle(), LiveViewProcessor {
 
     override suspend fun stop() {
         log.info("Stopping LiveViewProcessorImpl")
+    }
+
+    override fun addLiveViewSubscription(
+        subscription: LiveViewSubscription,
+        handler: Handler<AsyncResult<LiveViewSubscription>>
+    ) {
+        val subscriberId = Reflect.on(handler).get<MessageImpl<*, *>>("arg\$2").headers().let {
+            it.get("developer_id") ?: JWT.parse(it.get("auth-token"))
+                .getJsonObject("payload").getString("developer_id")
+        }
+        addLiveViewSubscription(subscriberId, subscription, handler)
+    }
+
+    override fun removeLiveViewSubscription(
+        subscriptionId: String,
+        handler: Handler<AsyncResult<LiveViewSubscription>>
+    ) {
+        TODO("Not yet implemented")
+    }
+
+    override fun getLiveViewSubscriptions(handler: Handler<AsyncResult<List<LiveViewSubscription>>>) {
+        val subscriberId = Reflect.on(handler).get<MessageImpl<*, *>>("arg\$2").headers().let {
+            it.get("developer_id") ?: JWT.parse(it.get("auth-token"))
+                .getJsonObject("payload").getString("developer_id")
+        }
+        getLiveViewSubscriptions(subscriberId, handler)
+    }
+
+    override fun clearLiveViewSubscriptions(handler: Handler<AsyncResult<List<LiveViewSubscription>>>) {
+        val subscriberId = Reflect.on(handler).get<MessageImpl<*, *>>("arg\$2").headers().let {
+            it.get("developer_id") ?: JWT.parse(it.get("auth-token"))
+                .getJsonObject("payload").getString("developer_id")
+        }
+        clearLiveViewSubscriptions(subscriberId, handler)
     }
 }

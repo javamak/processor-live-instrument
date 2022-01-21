@@ -17,10 +17,11 @@ import org.slf4j.LoggerFactory
 import spp.processor.common.FeedbackProcessor
 import spp.processor.common.FeedbackProcessor.Companion.INSTANCE_ID
 import spp.processor.live.LiveInstrumentProcessor
-import spp.processor.live.LiveViewProcessor
 import spp.processor.live.impl.LiveInstrumentProcessorImpl
 import spp.processor.live.impl.LiveViewProcessorImpl
+import spp.protocol.SourceMarkerServices
 import spp.protocol.processor.ProcessorAddress
+import spp.protocol.service.live.LiveViewService
 import spp.protocol.util.KSerializers
 import kotlin.system.exitProcess
 
@@ -78,12 +79,12 @@ class InstrumentProcessorVerticle : CoroutineVerticle() {
         }
 
         ServiceBinder(vertx).setIncludeDebugInfo(true)
-            .setAddress(ProcessorAddress.LIVE_VIEW_PROCESSOR.address)
-            .register(LiveViewProcessor::class.java, liveViewProcessor)
+            .setAddress(SourceMarkerServices.Utilize.LIVE_VIEW)
+            .register(LiveViewService::class.java, liveViewProcessor)
         liveViewRecord = EventBusService.createRecord(
-            ProcessorAddress.LIVE_VIEW_PROCESSOR.address,
-            ProcessorAddress.LIVE_VIEW_PROCESSOR.address,
-            LiveViewProcessor::class.java,
+            SourceMarkerServices.Utilize.LIVE_VIEW,
+            SourceMarkerServices.Utilize.LIVE_VIEW,
+            LiveViewService::class.java,
             JsonObject().put("INSTANCE_ID", INSTANCE_ID)
         )
         FeedbackProcessor.discovery.publish(liveViewRecord) {
