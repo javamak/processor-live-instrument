@@ -18,10 +18,7 @@ import spp.processor.common.FeedbackProcessor
 import spp.processor.common.FeedbackProcessor.Companion.INSTANCE_ID
 import spp.processor.live.LiveInstrumentProcessor
 import spp.processor.live.impl.LiveInstrumentProcessorImpl
-import spp.processor.live.impl.LiveViewProcessorImpl
-import spp.protocol.SourceMarkerServices
 import spp.protocol.processor.ProcessorAddress
-import spp.protocol.service.live.LiveViewService
 import spp.protocol.util.KSerializers
 import kotlin.system.exitProcess
 
@@ -30,12 +27,10 @@ class InstrumentProcessorVerticle : CoroutineVerticle() {
     companion object {
         private val log = LoggerFactory.getLogger(InstrumentProcessorVerticle::class.java)
 
-        val liveViewProcessor = LiveViewProcessorImpl()
         val liveInstrumentProcessor = LiveInstrumentProcessorImpl()
     }
 
     private var liveInstrumentRecord: Record? = null
-    private var liveViewRecord: Record? = null
 
     override suspend fun start() {
         log.info("Starting InstrumentProcessorVerticle")
@@ -57,7 +52,6 @@ class InstrumentProcessorVerticle : CoroutineVerticle() {
         module.addDeserializer(Instant::class.java, KSerializers.KotlinInstantDeserializer())
         DatabindCodec.mapper().registerModule(module)
 
-        vertx.deployVerticle(liveViewProcessor).await()
         vertx.deployVerticle(liveInstrumentProcessor).await()
 
         ServiceBinder(vertx).setIncludeDebugInfo(true)
@@ -77,24 +71,6 @@ class InstrumentProcessorVerticle : CoroutineVerticle() {
                 exitProcess(-1)
             }
         }
-
-        ServiceBinder(vertx).setIncludeDebugInfo(true)
-            .setAddress(SourceMarkerServices.Utilize.LIVE_VIEW)
-            .register(LiveViewService::class.java, liveViewProcessor)
-        liveViewRecord = EventBusService.createRecord(
-            SourceMarkerServices.Utilize.LIVE_VIEW,
-            SourceMarkerServices.Utilize.LIVE_VIEW,
-            LiveViewService::class.java,
-            JsonObject().put("INSTANCE_ID", INSTANCE_ID)
-        )
-        FeedbackProcessor.discovery.publish(liveViewRecord) {
-            if (it.succeeded()) {
-                log.info("Live view processor published")
-            } else {
-                log.error("Failed to publish live view processor", it.cause())
-                exitProcess(-1)
-            }
-        }
     }
 
     override suspend fun stop() {
@@ -104,13 +80,6 @@ class InstrumentProcessorVerticle : CoroutineVerticle() {
                 log.info("Live instrument processor unpublished")
             } else {
                 log.error("Failed to unpublish live instrument processor", it.cause())
-            }
-        }.await()
-        FeedbackProcessor.discovery.unpublish(liveViewRecord!!.registration).onComplete {
-            if (it.succeeded()) {
-                log.info("Live view processor unpublished")
-            } else {
-                log.error("Failed to unpublish live view processor", it.cause())
             }
         }.await()
     }
