@@ -84,14 +84,14 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
 
     override suspend fun start() {
         log.info("Starting LiveInstrumentProcessorImpl")
-        InstrumentProcessor.module!!.find(StorageModule.NAME).provider().apply {
+        FeedbackProcessor.module!!.find(StorageModule.NAME).provider().apply {
             metadata = getService(IMetadataQueryDAO::class.java)
         }
-        InstrumentProcessor.module!!.find(CoreModule.NAME).provider().apply {
+        FeedbackProcessor.module!!.find(CoreModule.NAME).provider().apply {
             metricsQueryService = getService(MetricsQueryService::class.java)
             meterSystem = getService(MeterSystem::class.java)
         }
-        InstrumentProcessor.module!!.find(AnalyzerModule.NAME).provider().apply {
+        FeedbackProcessor.module!!.find(AnalyzerModule.NAME).provider().apply {
             meterProcessService = getService(IMeterProcessService::class.java) as MeterProcessService
         }
 

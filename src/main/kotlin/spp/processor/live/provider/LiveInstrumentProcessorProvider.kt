@@ -13,7 +13,7 @@ import org.apache.skywalking.oap.server.library.module.ModuleConfig
 import org.apache.skywalking.oap.server.library.module.ModuleDefine
 import org.apache.skywalking.oap.server.library.module.ModuleProvider
 import org.slf4j.LoggerFactory
-import spp.processor.InstrumentProcessor
+import spp.processor.common.FeedbackProcessor
 import spp.processor.live.impl.instrument.LiveInstrumentAnalysis
 
 class LiveInstrumentModule : ModuleDefine("spp-live-instrument") {
@@ -33,7 +33,7 @@ class LiveInstrumentProcessorProvider : ModuleProvider() {
 
     override fun start() {
         log.info("Starting LiveInstrumentProcessorProvider")
-        InstrumentProcessor.module = manager
+        FeedbackProcessor.module = manager
 
         val liveInstrumentAnalysis = LiveInstrumentAnalysis()
 
