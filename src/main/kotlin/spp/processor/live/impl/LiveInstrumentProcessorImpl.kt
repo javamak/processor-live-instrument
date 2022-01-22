@@ -619,7 +619,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
             )
             if (log.isTraceEnabled) log.trace("Published live log hit")
         }
-        vertx.eventBus().consumer<JsonObject>(PlatformAddress.LIVE_LOG_APPLIED.address) {
+        vertx.eventBus().localConsumer<JsonObject>("local." + PlatformAddress.LIVE_LOG_APPLIED.address) {
             val liveLog = Json.decodeValue(it.body().toString(), LiveLog::class.java)
             liveInstruments.forEach {
                 if (it.instrument.id == liveLog.id) {
@@ -650,7 +650,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
                 }
             }
         }
-        vertx.eventBus().consumer<JsonObject>(PlatformAddress.LIVE_LOG_REMOVED.address) {
+        vertx.eventBus().localConsumer<JsonObject>("local." + PlatformAddress.LIVE_LOG_REMOVED.address) {
             if (log.isTraceEnabled) log.trace("Got live log removed: {}", it.body())
             val logCommand = it.body().getString("command")
             val logData = if (logCommand != null) {
@@ -675,7 +675,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
     }
 
     private fun listenForLiveMeters() {
-        vertx.eventBus().consumer<JsonObject>(PlatformAddress.LIVE_METER_APPLIED.address) {
+        vertx.eventBus().localConsumer<JsonObject>("local." + PlatformAddress.LIVE_METER_APPLIED.address) {
             val liveMeter = Json.decodeValue(it.body().toString(), LiveMeter::class.java)
             liveInstruments.forEach {
                 if (it.instrument.id == liveMeter.id) {
@@ -706,7 +706,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
                 }
             }
         }
-        vertx.eventBus().consumer<JsonObject>(PlatformAddress.LIVE_METER_REMOVED.address) {
+        vertx.eventBus().localConsumer<JsonObject>("local." + PlatformAddress.LIVE_METER_REMOVED.address) {
             if (log.isTraceEnabled) log.trace("Got live meter removed: {}", it.body())
             val meterCommand = it.body().getString("command")
             val meterData = if (meterCommand != null) {
@@ -731,7 +731,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
     }
 
     private fun listenForLiveSpans() {
-        vertx.eventBus().consumer<JsonObject>(PlatformAddress.LIVE_SPAN_APPLIED.address) {
+        vertx.eventBus().localConsumer<JsonObject>("local." + PlatformAddress.LIVE_SPAN_APPLIED.address) {
             val liveSpan = Json.decodeValue(it.body().toString(), LiveSpan::class.java)
             liveInstruments.forEach {
                 if (it.instrument.id == liveSpan.id) {
@@ -762,7 +762,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
                 }
             }
         }
-        vertx.eventBus().consumer<JsonObject>(PlatformAddress.LIVE_SPAN_REMOVED.address) {
+        vertx.eventBus().localConsumer<JsonObject>("local." + PlatformAddress.LIVE_SPAN_REMOVED.address) {
             if (log.isTraceEnabled) log.trace("Got live span removed: {}", it.body())
             val spanCommand = it.body().getString("command")
             val spanData = if (spanCommand != null) {
