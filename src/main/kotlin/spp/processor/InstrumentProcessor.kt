@@ -7,6 +7,7 @@ import kotlinx.coroutines.runBlocking
 import org.apache.skywalking.oap.server.library.module.ModuleManager
 import org.slf4j.LoggerFactory
 import spp.processor.common.FeedbackProcessor
+import spp.protocol.SourceMarkerServices
 import spp.protocol.processor.ProcessorAddress
 import kotlin.system.exitProcess
 
@@ -30,7 +31,7 @@ object InstrumentProcessor : FeedbackProcessor() {
         //register services
         FrameHelper.sendFrame(
             BridgeEventType.REGISTER.name.lowercase(),
-            ProcessorAddress.LIVE_INSTRUMENT_PROCESSOR.address,
+            SourceMarkerServices.Utilize.LIVE_INSTRUMENT,
             JsonObject(), tcpSocket
         )
 

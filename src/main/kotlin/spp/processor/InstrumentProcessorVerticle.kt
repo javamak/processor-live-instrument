@@ -16,9 +16,9 @@ import org.apache.skywalking.oap.server.core.analysis.metrics.DataTable
 import org.slf4j.LoggerFactory
 import spp.processor.common.FeedbackProcessor
 import spp.processor.common.FeedbackProcessor.Companion.INSTANCE_ID
-import spp.processor.live.LiveInstrumentProcessor
 import spp.processor.live.impl.LiveInstrumentProcessorImpl
-import spp.protocol.processor.ProcessorAddress
+import spp.protocol.SourceMarkerServices
+import spp.protocol.service.live.LiveInstrumentService
 import spp.protocol.util.KSerializers
 import kotlin.system.exitProcess
 
@@ -55,12 +55,12 @@ class InstrumentProcessorVerticle : CoroutineVerticle() {
         vertx.deployVerticle(liveInstrumentProcessor).await()
 
         ServiceBinder(vertx).setIncludeDebugInfo(true)
-            .setAddress(ProcessorAddress.LIVE_INSTRUMENT_PROCESSOR.address)
-            .register(LiveInstrumentProcessor::class.java, liveInstrumentProcessor)
+            .setAddress(SourceMarkerServices.Utilize.LIVE_INSTRUMENT)
+            .register(LiveInstrumentService::class.java, liveInstrumentProcessor)
         liveInstrumentRecord = EventBusService.createRecord(
-            ProcessorAddress.LIVE_INSTRUMENT_PROCESSOR.address,
-            ProcessorAddress.LIVE_INSTRUMENT_PROCESSOR.address,
-            LiveInstrumentProcessor::class.java,
+            SourceMarkerServices.Utilize.LIVE_INSTRUMENT,
+            SourceMarkerServices.Utilize.LIVE_INSTRUMENT,
+            LiveInstrumentService::class.java,
             JsonObject().put("INSTANCE_ID", INSTANCE_ID)
         )
         FeedbackProcessor.discovery.publish(liveInstrumentRecord) {

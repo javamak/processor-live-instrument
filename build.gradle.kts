@@ -29,6 +29,7 @@ repositories {
 }
 
 dependencies {
+    compileOnly("io.github.microutils:kotlin-logging-jvm:2.1.21")
     compileOnly("org.jooq:joor:$joorVersion")
     compileOnly("com.github.sourceplusplus:processor-dependencies:$processorDependenciesVersion")
     compileOnly("com.github.sourceplusplus.protocol:protocol:$protocolVersion")
@@ -56,6 +57,7 @@ dependencies {
     compileOnly("io.vertx:vertx-core:$vertxVersion")
     compileOnly("io.vertx:vertx-lang-kotlin:$vertxVersion")
     compileOnly("io.vertx:vertx-lang-kotlin-coroutines:$vertxVersion")
+    compileOnly("io.vertx:vertx-auth-common:$vertxVersion")
     compileOnly("com.fasterxml.jackson.datatype:jackson-datatype-jsr310:$jacksonVersion")
     compileOnly("com.fasterxml.jackson.datatype:jackson-datatype-jdk8:$jacksonVersion")
     compileOnly("com.fasterxml.jackson.datatype:jackson-datatype-guava:$jacksonVersion")
