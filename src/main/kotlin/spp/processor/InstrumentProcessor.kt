@@ -8,6 +8,7 @@ import org.apache.skywalking.oap.server.library.module.ModuleManager
 import org.slf4j.LoggerFactory
 import spp.processor.common.FeedbackProcessor
 import spp.protocol.SourceMarkerServices
+import spp.protocol.SourceMarkerServices.Provide.LIVE_INSTRUMENT_SUBSCRIBER
 import spp.protocol.processor.ProcessorAddress
 import kotlin.system.exitProcess
 
@@ -21,6 +22,7 @@ object InstrumentProcessor : FeedbackProcessor() {
             log.info("InstrumentProcessor initialized")
 
             connectToPlatform()
+            republishEvents(vertx, LIVE_INSTRUMENT_SUBSCRIBER)
             republishEvents(vertx, ProcessorAddress.BREAKPOINT_HIT.address)
             republishEvents(vertx, ProcessorAddress.LOG_HIT.address)
         }

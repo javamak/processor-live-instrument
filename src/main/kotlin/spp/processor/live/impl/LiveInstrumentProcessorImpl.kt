@@ -11,6 +11,8 @@ import io.vertx.core.json.Json
 import io.vertx.core.json.JsonArray
 import io.vertx.core.json.JsonObject
 import io.vertx.ext.auth.impl.jose.JWT
+import io.vertx.ext.bridge.BridgeEventType
+import io.vertx.ext.eventbus.bridge.tcp.impl.protocol.FrameHelper
 import io.vertx.kotlin.coroutines.CoroutineVerticle
 import io.vertx.kotlin.coroutines.await
 import io.vertx.kotlin.coroutines.dispatcher
@@ -37,6 +39,7 @@ import org.apache.skywalking.oap.server.core.storage.StorageModule
 import org.apache.skywalking.oap.server.core.storage.query.IMetadataQueryDAO
 import org.joor.Reflect
 import spp.processor.InstrumentProcessor
+import spp.processor.common.FeedbackProcessor
 import spp.processor.common.SkyWalkingStorage.Companion.METRIC_PREFIX
 import spp.protocol.SourceMarkerServices
 import spp.protocol.artifact.exception.LiveStackTrace
@@ -380,7 +383,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
     }
 
     override fun getLiveBreakpoints(handler: Handler<AsyncResult<List<LiveBreakpoint>>>) {
-        val selfId = Reflect.on(handler).get<MessageImpl<*, *>>("arg\$2").headers().let {
+        val selfId = Reflect.on(handler).get<MessageImpl<*, *>>("arg\$1").headers().let {
             it.get("developer_id") ?: JWT.parse(it.get("auth-token"))
                 .getJsonObject("payload").getString("developer_id")
         }
@@ -390,7 +393,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
     }
 
     override fun getLiveLogs(handler: Handler<AsyncResult<List<LiveLog>>>) {
-        val selfId = Reflect.on(handler).get<MessageImpl<*, *>>("arg\$2").headers().let {
+        val selfId = Reflect.on(handler).get<MessageImpl<*, *>>("arg\$1").headers().let {
             it.get("developer_id") ?: JWT.parse(it.get("auth-token"))
                 .getJsonObject("payload").getString("developer_id")
         }
@@ -400,7 +403,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
     }
 
     override fun getLiveMeters(handler: Handler<AsyncResult<List<LiveMeter>>>) {
-        val selfId = Reflect.on(handler).get<MessageImpl<*, *>>("arg\$2").headers().let {
+        val selfId = Reflect.on(handler).get<MessageImpl<*, *>>("arg\$1").headers().let {
             it.get("developer_id") ?: JWT.parse(it.get("auth-token"))
                 .getJsonObject("payload").getString("developer_id")
         }
@@ -410,7 +413,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
     }
 
     override fun getLiveSpans(handler: Handler<AsyncResult<List<LiveSpan>>>) {
-        val selfId = Reflect.on(handler).get<MessageImpl<*, *>>("arg\$2").headers().let {
+        val selfId = Reflect.on(handler).get<MessageImpl<*, *>>("arg\$1").headers().let {
             it.get("developer_id") ?: JWT.parse(it.get("auth-token"))
                 .getJsonObject("payload").getString("developer_id")
         }
@@ -431,7 +434,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
 
     override fun clearLiveInstruments(handler: Handler<AsyncResult<Boolean>>) {
         var accessToken: String? = null
-        val selfId = Reflect.on(handler).get<MessageImpl<*, *>>("arg\$2").headers().let {
+        val selfId = Reflect.on(handler).get<MessageImpl<*, *>>("arg\$1").headers().let {
             if (it.contains("auth-token")) {
                 accessToken = it.get("auth-token")
                 JWT.parse(it.get("auth-token")).getJsonObject("payload").getString("developer_id")
@@ -453,7 +456,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
 
     override fun clearLiveBreakpoints(handler: Handler<AsyncResult<Boolean>>) {
         var accessToken: String? = null
-        val selfId = Reflect.on(handler).get<MessageImpl<*, *>>("arg\$2").headers().let {
+        val selfId = Reflect.on(handler).get<MessageImpl<*, *>>("arg\$1").headers().let {
             if (it.contains("auth-token")) {
                 accessToken = it.get("auth-token")
                 JWT.parse(it.get("auth-token")).getJsonObject("payload").getString("developer_id")
@@ -468,7 +471,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
 
     override fun clearLiveLogs(handler: Handler<AsyncResult<Boolean>>) {
         var accessToken: String? = null
-        val selfId = Reflect.on(handler).get<MessageImpl<*, *>>("arg\$2").headers().let {
+        val selfId = Reflect.on(handler).get<MessageImpl<*, *>>("arg\$1").headers().let {
             if (it.contains("auth-token")) {
                 accessToken = it.get("auth-token")
                 JWT.parse(it.get("auth-token")).getJsonObject("payload").getString("developer_id")
@@ -483,7 +486,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
 
     override fun clearLiveMeters(handler: Handler<AsyncResult<Boolean>>) {
         var accessToken: String? = null
-        val selfId = Reflect.on(handler).get<MessageImpl<*, *>>("arg\$2").headers().let {
+        val selfId = Reflect.on(handler).get<MessageImpl<*, *>>("arg\$1").headers().let {
             if (it.contains("auth-token")) {
                 accessToken = it.get("auth-token")
                 JWT.parse(it.get("auth-token")).getJsonObject("payload").getString("developer_id")
@@ -498,7 +501,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
 
     override fun clearLiveSpans(handler: Handler<AsyncResult<Boolean>>) {
         var accessToken: String? = null
-        val selfId = Reflect.on(handler).get<MessageImpl<*, *>>("arg\$2").headers().let {
+        val selfId = Reflect.on(handler).get<MessageImpl<*, *>>("arg\$1").headers().let {
             if (it.contains("auth-token")) {
                 accessToken = it.get("auth-token")
                 JWT.parse(it.get("auth-token")).getJsonObject("payload").getString("developer_id")
@@ -971,7 +974,11 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
 
         sendToProbes.forEach {
             log.trace("Dispatching command to probe: {}", it.probeId)
-            vertx.eventBus().send(address.address + ":" + it.probeId, JsonObject.mapFrom(debuggerCommand))
+            FrameHelper.sendFrame(
+                BridgeEventType.SEND.name.lowercase(),
+                address.address + ":" + it.probeId, null, JsonObject(), true,
+                JsonObject.mapFrom(debuggerCommand), FeedbackProcessor.tcpSocket
+            )
         }
     }
 
