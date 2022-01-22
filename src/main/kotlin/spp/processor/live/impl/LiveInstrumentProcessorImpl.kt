@@ -161,6 +161,15 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
                 it.get("developer_id")
             }
         }
+        addLiveInstrument(selfId, instrument, handler, accessToken)
+    }
+
+    private fun addLiveInstrument(
+        selfId: String,
+        instrument: LiveInstrument,
+        handler: Handler<AsyncResult<LiveInstrument>>,
+        accessToken: String?
+    ) {
         log.info(
             "Received add live instrument request. Developer: {} - Location: {}",
             selfId, instrument.location.let { it.source + ":" + it.line }
@@ -268,9 +277,14 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
     }
 
     override fun addLiveInstruments(batch: LiveInstrumentBatch, handler: Handler<AsyncResult<List<LiveInstrument>>>) {
+        var accessToken: String? = null
         val selfId = Reflect.on(handler).get<MessageImpl<*, *>>("arg\$2").headers().let {
-            it.get("developer_id") ?: JWT.parse(it.get("auth-token"))
-                .getJsonObject("payload").getString("developer_id")
+            if (it.contains("auth-token")) {
+                accessToken = it.get("auth-token")
+                JWT.parse(it.get("auth-token")).getJsonObject("payload").getString("developer_id")
+            } else {
+                it.get("developer_id")
+            }
         }
         log.info(
             "Received add live instrument batch request. Developer: {} - Location(s): {}",
@@ -282,7 +296,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
                 val results = mutableListOf<LiveInstrument>()
                 batch.instruments.forEach {
                     val promise = Promise.promise<LiveInstrument>()
-                    addLiveInstrument(it, promise)
+                    addLiveInstrument(selfId, it, promise, accessToken)
                     results.add(promise.future().await())
                 }
                 handler.handle(Future.succeededFuture(results))
@@ -422,15 +436,20 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
         handler.handle(Future.succeededFuture(getActiveLiveSpans()))
     }
 
-//    fun clearAllLiveInstruments() {
-//        val selfId = Reflect.on(handler).get<MessageImpl<*, *>>("arg\$2").headers().let {
-//            it.get("developer_id") ?: JWT.parse(it.get("auth-token"))
-//                .getJsonObject("payload").getString("developer_id")
-//        }
-//        log.info("Received clear live instruments request. Developer: {}", selfId)
-//
-//        clearAllLiveInstruments(selfId)
-//    }
+    override fun clearAllLiveInstruments(handler: Handler<AsyncResult<Boolean>>) {
+        var accessToken: String? = null
+        val selfId = Reflect.on(handler).get<MessageImpl<*, *>>("arg\$1").headers().let {
+            if (it.contains("auth-token")) {
+                accessToken = it.get("auth-token")
+                JWT.parse(it.get("auth-token")).getJsonObject("payload").getString("developer_id")
+            } else {
+                it.get("developer_id")
+            }
+        }
+        log.info("Received clear live instruments request. Developer: {}", selfId)
+
+        handler.handle(clearAllLiveInstruments(selfId, accessToken))
+    }
 
     override fun clearLiveInstruments(handler: Handler<AsyncResult<Boolean>>) {
         var accessToken: String? = null
@@ -1337,7 +1356,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
     }
 
     //todo: impl probe clear command
-    fun clearAllLiveInstruments(selfId: String, accessToken: String): AsyncResult<Boolean> {
+    fun clearAllLiveInstruments(selfId: String, accessToken: String?): AsyncResult<Boolean> {
         val allLiveInstruments = getLiveInstruments()
         allLiveInstruments.forEach {
             removeLiveInstrument(selfId, accessToken, it.id!!)
