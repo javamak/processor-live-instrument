@@ -13,6 +13,7 @@ import org.apache.skywalking.oap.server.library.module.ModuleConfig
 import org.apache.skywalking.oap.server.library.module.ModuleDefine
 import org.apache.skywalking.oap.server.library.module.ModuleProvider
 import org.slf4j.LoggerFactory
+import spp.processor.InstrumentProcessor
 import spp.processor.common.FeedbackProcessor
 import spp.processor.live.impl.instrument.LiveInstrumentAnalysis
 
@@ -49,6 +50,8 @@ class LiveInstrumentProcessorProvider : ModuleProvider() {
         val logParserService = manager.find(LogAnalyzerModule.NAME)
             .provider().getService(ILogAnalyzerService::class.java) as LogAnalyzerServiceImpl
         logParserService.addListenerFactory(liveInstrumentAnalysis)
+
+        InstrumentProcessor.processorVerticleId //todo: smarter
     }
 
     override fun notifyAfterCompleted() = Unit
