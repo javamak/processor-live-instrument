@@ -84,16 +84,16 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
 
     override suspend fun start() {
         log.info("Starting LiveInstrumentProcessorImpl")
-        InstrumentProcessor.module!!.find(StorageModule.NAME).provider().apply {
-            metadata = getService(IMetadataQueryDAO::class.java)
-        }
-        InstrumentProcessor.module!!.find(CoreModule.NAME).provider().apply {
-            metricsQueryService = getService(MetricsQueryService::class.java)
-            meterSystem = getService(MeterSystem::class.java)
-        }
-        InstrumentProcessor.module!!.find(AnalyzerModule.NAME).provider().apply {
-            meterProcessService = getService(IMeterProcessService::class.java) as MeterProcessService
-        }
+//        InstrumentProcessor.module!!.find(StorageModule.NAME).provider().apply {
+//            metadata = getService(IMetadataQueryDAO::class.java)
+//        }
+//        InstrumentProcessor.module!!.find(CoreModule.NAME).provider().apply {
+//            metricsQueryService = getService(MetricsQueryService::class.java)
+//            meterSystem = getService(MeterSystem::class.java)
+//        }
+//        InstrumentProcessor.module!!.find(AnalyzerModule.NAME).provider().apply {
+//            meterProcessService = getService(IMeterProcessService::class.java) as MeterProcessService
+//        }
 
         vertx.setPeriodic(TimeUnit.SECONDS.toMillis(1)) {
             if (liveInstruments.isNotEmpty()) {
