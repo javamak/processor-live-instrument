@@ -16,7 +16,6 @@ import kotlin.system.exitProcess
 object InstrumentProcessor : FeedbackProcessor() {
 
     private val log = LoggerFactory.getLogger(InstrumentProcessor::class.java)
-    var module: ModuleManager? = null
 
     init {
         runBlocking {
