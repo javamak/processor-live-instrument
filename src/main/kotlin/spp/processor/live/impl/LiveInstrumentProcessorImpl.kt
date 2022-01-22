@@ -84,16 +84,16 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
 
     override suspend fun start() {
         log.info("Starting LiveInstrumentProcessorImpl")
-//        InstrumentProcessor.module!!.find(StorageModule.NAME).provider().apply {
-//            metadata = getService(IMetadataQueryDAO::class.java)
-//        }
-//        InstrumentProcessor.module!!.find(CoreModule.NAME).provider().apply {
-//            metricsQueryService = getService(MetricsQueryService::class.java)
-//            meterSystem = getService(MeterSystem::class.java)
-//        }
-//        InstrumentProcessor.module!!.find(AnalyzerModule.NAME).provider().apply {
-//            meterProcessService = getService(IMeterProcessService::class.java) as MeterProcessService
-//        }
+        InstrumentProcessor.module!!.find(StorageModule.NAME).provider().apply {
+            metadata = getService(IMetadataQueryDAO::class.java)
+        }
+        InstrumentProcessor.module!!.find(CoreModule.NAME).provider().apply {
+            metricsQueryService = getService(MetricsQueryService::class.java)
+            meterSystem = getService(MeterSystem::class.java)
+        }
+        InstrumentProcessor.module!!.find(AnalyzerModule.NAME).provider().apply {
+            meterProcessService = getService(IMeterProcessService::class.java) as MeterProcessService
+        }
 
         vertx.setPeriodic(TimeUnit.SECONDS.toMillis(1)) {
             if (liveInstruments.isNotEmpty()) {
@@ -526,7 +526,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
     private val waitingApply = ConcurrentHashMap<String, Handler<AsyncResult<DeveloperInstrument>>>()
 
     private fun listenForLiveBreakpoints() {
-        vertx.eventBus().consumer<JsonObject>(PlatformAddress.LIVE_BREAKPOINT_APPLIED.address) {
+        vertx.eventBus().localConsumer<JsonObject>("local." + PlatformAddress.LIVE_BREAKPOINT_APPLIED.address) {
             if (log.isTraceEnabled) log.trace("Got live breakpoint applied: {}", it.body())
             val bp = Json.decodeValue(it.body().toString(), LiveBreakpoint::class.java)
             liveInstruments.forEach {
@@ -558,7 +558,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
                 }
             }
         }
-        vertx.eventBus().consumer<JsonObject>(PlatformAddress.LIVE_BREAKPOINT_REMOVED.address) {
+        vertx.eventBus().localConsumer<JsonObject>("local." + PlatformAddress.LIVE_BREAKPOINT_REMOVED.address) {
             if (log.isTraceEnabled) log.trace("Got live breakpoint removed: {}", it.body())
             val bpCommand = it.body().getString("command")
             val bpData = if (bpCommand != null) {
