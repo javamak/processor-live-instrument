@@ -5,7 +5,6 @@ plugins {
     id("com.avast.gradle.docker-compose")
     id("com.github.johnrengelman.shadow")
     kotlin("jvm")
-    kotlin("kapt")
 }
 
 val processorGroup: String by project
@@ -47,11 +46,8 @@ dependencies {
     compileOnly("org.apache.skywalking:meter-analyzer:$skywalkingVersion") { isTransitive = false }
     compileOnly("org.apache.skywalking:log-analyzer:$skywalkingVersion") { isTransitive = false }
     compileOnly("io.vertx:vertx-service-discovery:$vertxVersion")
-    compileOnly("io.vertx:vertx-service-proxy:$vertxVersion")
-    compileOnly("io.vertx:vertx-codegen:$vertxVersion")
+    compileOnly("io.vertx:vertx-service-proxy:4.1.5")
     compileOnly("org.jetbrains.kotlinx:kotlinx-datetime:0.3.2")
-    kapt("io.vertx:vertx-codegen:$vertxVersion:processor")
-    annotationProcessor("io.vertx:vertx-service-proxy:$vertxVersion")
     compileOnly("io.vertx:vertx-tcp-eventbus-bridge:$vertxVersion")
     compileOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.0")
     compileOnly("io.vertx:vertx-core:$vertxVersion")
@@ -82,7 +78,7 @@ dependencies {
     testImplementation("com.github.sourceplusplus.protocol:protocol:$protocolVersion")
     testImplementation("io.vertx:vertx-tcp-eventbus-bridge:$vertxVersion")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.0")
-    testImplementation("io.vertx:vertx-service-proxy:$vertxVersion")
+    testImplementation("io.vertx:vertx-service-proxy:4.1.5")
     testImplementation("org.slf4j:slf4j-api:1.7.32")
     testImplementation("org.slf4j:slf4j-simple:1.7.33")
     testImplementation("com.google.guava:guava:31.0.1-jre")
