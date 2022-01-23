@@ -4,7 +4,9 @@ import com.fasterxml.jackson.core.JsonGenerator
 import com.fasterxml.jackson.databind.JsonSerializer
 import com.fasterxml.jackson.databind.SerializerProvider
 import com.fasterxml.jackson.databind.module.SimpleModule
+import io.vertx.core.AsyncResult
 import io.vertx.core.Future
+import io.vertx.core.Handler
 import io.vertx.core.Promise
 import io.vertx.core.eventbus.Message
 import io.vertx.core.eventbus.ReplyException
@@ -25,8 +27,12 @@ import spp.processor.common.FeedbackProcessor
 import spp.processor.common.FeedbackProcessor.Companion.INSTANCE_ID
 import spp.processor.live.impl.LiveInstrumentProcessorImpl
 import spp.protocol.SourceMarkerServices
+import spp.protocol.auth.RolePermission
+import spp.protocol.auth.RolePermission.CLEAR_ALL_LIVE_INSTRUMENTS
+import spp.protocol.auth.RolePermission.REMOVE_LIVE_INSTRUMENT
 import spp.protocol.developer.SelfInfo
 import spp.protocol.service.error.InstrumentAccessDenied
+import spp.protocol.service.error.PermissionAccessDenied
 import spp.protocol.service.live.LiveInstrumentService
 import spp.protocol.util.AccessChecker
 import spp.protocol.util.KSerializers
@@ -65,7 +71,7 @@ class InstrumentProcessorVerticle : CoroutineVerticle() {
         vertx.deployVerticle(liveInstrumentProcessor).await()
 
         ServiceBinder(vertx).setIncludeDebugInfo(true)
-            .addInterceptor { msg -> accessCheckInterceptor(msg) }
+            .addInterceptor { msg -> permissionAndAccessCheckInterceptor(msg) }
             .setAddress(SourceMarkerServices.Utilize.LIVE_INSTRUMENT)
             .register(LiveInstrumentService::class.java, liveInstrumentProcessor)
         liveInstrumentRecord = EventBusService.createRecord(
@@ -84,30 +90,71 @@ class InstrumentProcessorVerticle : CoroutineVerticle() {
         }
     }
 
-    private fun accessCheckInterceptor(msg: Message<JsonObject>): Future<Message<JsonObject>> {
+    private fun permissionAndAccessCheckInterceptor(msg: Message<JsonObject>): Future<Message<JsonObject>> {
         val promise = Promise.promise<Message<JsonObject>>()
-        if (msg.headers().get("action").startsWith("addLiveInstrument")) {
-            requestEvent(
-                vertx, SourceMarkerServices.Utilize.LIVE_SERVICE, JsonObject(),
-                JsonObject().put("auth-token", msg.headers().get("auth-token")).put("action", "getSelf")
-            ) {
-                if (it.succeeded()) {
-                    val selfInfo = Json.decodeValue(it.result().toString(), SelfInfo::class.java)
-                    validateInstrumentAccess(selfInfo, msg, promise)
-                } else {
-                    promise.fail(it.cause())
+        requestEvent(
+            vertx, SourceMarkerServices.Utilize.LIVE_SERVICE, JsonObject(),
+            JsonObject().put("auth-token", msg.headers().get("auth-token")).put("action", "getSelf")
+        ) {
+            if (it.succeeded()) {
+                val selfInfo = Json.decodeValue(it.result().toString(), SelfInfo::class.java)
+                validateRolePermission(selfInfo, msg) {
+                    if (it.succeeded()) {
+                        if (msg.headers().get("action").startsWith("addLiveInstrument")) {
+                            validateInstrumentAccess(selfInfo, msg, promise)
+                        } else {
+                            promise.complete(msg)
+                        }
+                    } else {
+                        promise.fail(it.cause())
+                    }
                 }
+            } else {
+                promise.fail(it.cause())
             }
-        } else {
-            promise.complete(msg)
         }
         return promise.future()
+    }
+
+    private fun validateRolePermission(
+        selfInfo: SelfInfo, msg: Message<JsonObject>, handler: Handler<AsyncResult<Message<JsonObject>>>
+    ) {
+        if (msg.headers().get("action").startsWith("addLiveInstrument")) {
+            val instrumentType = msg.body().getJsonObject("instrument").getString("type")
+            val necessaryPermission = RolePermission.valueOf("ADD_LIVE_$instrumentType")
+            if (selfInfo.permissions.contains(necessaryPermission)) {
+                handler.handle(Future.succeededFuture(msg))
+            } else {
+                handler.handle(Future.failedFuture(PermissionAccessDenied(necessaryPermission).toEventBusException()))
+            }
+        } else if (msg.headers().get("action").startsWith("removeLiveInstrument")) {
+            if (selfInfo.permissions.contains(REMOVE_LIVE_INSTRUMENT)) {
+                handler.handle(Future.succeededFuture(msg))
+            } else {
+                handler.handle(Future.failedFuture(PermissionAccessDenied(REMOVE_LIVE_INSTRUMENT).toEventBusException()))
+            }
+        } else if (msg.headers().get("action") == "clearLiveInstruments") {
+            if (selfInfo.permissions.contains(CLEAR_ALL_LIVE_INSTRUMENTS)) {
+                handler.handle(Future.succeededFuture(msg))
+            } else {
+                handler.handle(Future.failedFuture(PermissionAccessDenied(CLEAR_ALL_LIVE_INSTRUMENTS).toEventBusException()))
+            }
+        } else if (RolePermission.fromString(msg.headers().get("action")) != null) {
+            val necessaryPermission = RolePermission.fromString(msg.headers().get("action"))!!
+            if (selfInfo.permissions.contains(necessaryPermission)) {
+                handler.handle(Future.succeededFuture(msg))
+            } else {
+                handler.handle(Future.failedFuture(PermissionAccessDenied(necessaryPermission).toEventBusException()))
+            }
+        } else {
+            TODO()
+        }
     }
 
     private fun validateInstrumentAccess(
         selfInfo: SelfInfo, msg: Message<JsonObject>, promise: Promise<Message<JsonObject>>
     ) {
-        if (msg.headers().get("action").startsWith("addLiveInstruments")) {
+        if (msg.headers().get("action") == "addLiveInstruments") {
             val instruments = msg.body().getJsonObject("batch").getJsonArray("instruments")
             for (i in 0 until instruments.size()) {
                 val sourceLocation = instruments.getJsonObject(i)

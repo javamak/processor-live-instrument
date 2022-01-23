@@ -397,7 +397,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
     }
 
     override fun getLiveBreakpoints(handler: Handler<AsyncResult<List<LiveBreakpoint>>>) {
-        val selfId = Reflect.on(handler).get<MessageImpl<*, *>>("arg\$1").headers().let {
+        val selfId = Reflect.on(handler).get<MessageImpl<*, *>>("arg\$2").headers().let {
             it.get("developer_id") ?: JWT.parse(it.get("auth-token"))
                 .getJsonObject("payload").getString("developer_id")
         }
@@ -407,7 +407,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
     }
 
     override fun getLiveLogs(handler: Handler<AsyncResult<List<LiveLog>>>) {
-        val selfId = Reflect.on(handler).get<MessageImpl<*, *>>("arg\$1").headers().let {
+        val selfId = Reflect.on(handler).get<MessageImpl<*, *>>("arg\$2").headers().let {
             it.get("developer_id") ?: JWT.parse(it.get("auth-token"))
                 .getJsonObject("payload").getString("developer_id")
         }
@@ -417,7 +417,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
     }
 
     override fun getLiveMeters(handler: Handler<AsyncResult<List<LiveMeter>>>) {
-        val selfId = Reflect.on(handler).get<MessageImpl<*, *>>("arg\$1").headers().let {
+        val selfId = Reflect.on(handler).get<MessageImpl<*, *>>("arg\$2").headers().let {
             it.get("developer_id") ?: JWT.parse(it.get("auth-token"))
                 .getJsonObject("payload").getString("developer_id")
         }
@@ -427,7 +427,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
     }
 
     override fun getLiveSpans(handler: Handler<AsyncResult<List<LiveSpan>>>) {
-        val selfId = Reflect.on(handler).get<MessageImpl<*, *>>("arg\$1").headers().let {
+        val selfId = Reflect.on(handler).get<MessageImpl<*, *>>("arg\$2").headers().let {
             it.get("developer_id") ?: JWT.parse(it.get("auth-token"))
                 .getJsonObject("payload").getString("developer_id")
         }
