@@ -4,10 +4,7 @@ import com.fasterxml.jackson.core.JsonGenerator
 import com.fasterxml.jackson.databind.JsonSerializer
 import com.fasterxml.jackson.databind.SerializerProvider
 import com.fasterxml.jackson.databind.module.SimpleModule
-import io.vertx.core.AsyncResult
-import io.vertx.core.Future
-import io.vertx.core.Handler
-import io.vertx.core.Promise
+import io.vertx.core.*
 import io.vertx.core.eventbus.Message
 import io.vertx.core.eventbus.ReplyException
 import io.vertx.core.eventbus.ReplyFailure
@@ -52,13 +49,13 @@ object InstrumentProcessor : FeedbackProcessor() {
             log.info("InstrumentProcessor initialized")
 
             connectToPlatform()
-            republishEvents(vertx, LIVE_INSTRUMENT_SUBSCRIBER)
-            republishEvents(vertx, ProcessorAddress.BREAKPOINT_HIT.address)
-            republishEvents(vertx, ProcessorAddress.LOG_HIT.address)
+            republishEvents(LIVE_INSTRUMENT_SUBSCRIBER)
+            republishEvents(ProcessorAddress.BREAKPOINT_HIT.address)
+            republishEvents(ProcessorAddress.LOG_HIT.address)
         }
     }
 
-    override fun onConnected() {
+    override fun onConnected(vertx: Vertx) {
         //todo: this is hacky. ServiceBinder.register is supposed to do this
         //register services
         FrameHelper.sendFrame(
@@ -166,7 +163,7 @@ object InstrumentProcessor : FeedbackProcessor() {
     private fun permissionAndAccessCheckInterceptor(msg: Message<JsonObject>): Future<Message<JsonObject>> {
         val promise = Promise.promise<Message<JsonObject>>()
         requestEvent(
-            vertx, SourceMarkerServices.Utilize.LIVE_SERVICE, JsonObject(),
+            SourceMarkerServices.Utilize.LIVE_SERVICE, JsonObject(),
             JsonObject().put("auth-token", msg.headers().get("auth-token")).put("action", "getSelf")
         ) {
             if (it.succeeded()) {
