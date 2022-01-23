@@ -968,12 +968,12 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
         debuggerCommand: LiveInstrumentCommand
     ) = GlobalScope.launch(vertx.dispatcher()) {
         val promise = Promise.promise<JsonArray>()
-        InstrumentProcessor.requestEvent(
+        InstrumentProcessor.requestEvent<JsonArray>(
             SourceMarkerServices.Utilize.LIVE_SERVICE, JsonObject(),
             JsonObject().put("auth-token", accessToken).put("action", "getActiveProbes")
         ) {
             if (it.succeeded()) {
-                promise.complete(it.result().getJsonArray("value"))
+                promise.complete(it.result())
             } else {
                 promise.fail(it.cause())
             }

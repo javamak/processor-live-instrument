@@ -162,7 +162,7 @@ object InstrumentProcessor : FeedbackProcessor() {
 
     private fun permissionAndAccessCheckInterceptor(msg: Message<JsonObject>): Future<Message<JsonObject>> {
         val promise = Promise.promise<Message<JsonObject>>()
-        requestEvent(
+        requestEvent<JsonObject>(
             SourceMarkerServices.Utilize.LIVE_SERVICE, JsonObject(),
             JsonObject().put("auth-token", msg.headers().get("auth-token")).put("action", "getSelf")
         ) {
