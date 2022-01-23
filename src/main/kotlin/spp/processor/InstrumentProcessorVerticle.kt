@@ -28,8 +28,7 @@ import spp.processor.common.FeedbackProcessor.Companion.INSTANCE_ID
 import spp.processor.live.impl.LiveInstrumentProcessorImpl
 import spp.protocol.SourceMarkerServices
 import spp.protocol.auth.RolePermission
-import spp.protocol.auth.RolePermission.CLEAR_ALL_LIVE_INSTRUMENTS
-import spp.protocol.auth.RolePermission.REMOVE_LIVE_INSTRUMENT
+import spp.protocol.auth.RolePermission.*
 import spp.protocol.developer.SelfInfo
 import spp.protocol.service.error.InstrumentAccessDenied
 import spp.protocol.service.error.PermissionAccessDenied
@@ -119,7 +118,18 @@ class InstrumentProcessorVerticle : CoroutineVerticle() {
     private fun validateRolePermission(
         selfInfo: SelfInfo, msg: Message<JsonObject>, handler: Handler<AsyncResult<Message<JsonObject>>>
     ) {
-        if (msg.headers().get("action").startsWith("addLiveInstrument")) {
+        if (msg.headers().get("action") == "addLiveInstruments") {
+            val batchPromise = Promise.promise<Message<JsonObject>>()
+            msg.body().getJsonObject("batch").getJsonArray("instruments").list.forEach {
+                val instrumentType = (it as JsonObject).getString("type")
+                val necessaryPermission = RolePermission.valueOf("ADD_LIVE_$instrumentType")
+                if (!selfInfo.permissions.contains(necessaryPermission)) {
+                    batchPromise.fail(PermissionAccessDenied(necessaryPermission).toEventBusException())
+                }
+            }
+            batchPromise.tryComplete(msg)
+            handler.handle(batchPromise.future())
+        } else if (msg.headers().get("action") == "addLiveInstrument") {
             val instrumentType = msg.body().getJsonObject("instrument").getString("type")
             val necessaryPermission = RolePermission.valueOf("ADD_LIVE_$instrumentType")
             if (selfInfo.permissions.contains(necessaryPermission)) {
@@ -132,6 +142,12 @@ class InstrumentProcessorVerticle : CoroutineVerticle() {
                 handler.handle(Future.succeededFuture(msg))
             } else {
                 handler.handle(Future.failedFuture(PermissionAccessDenied(REMOVE_LIVE_INSTRUMENT).toEventBusException()))
+            }
+        } else if (msg.headers().get("action").startsWith("getLiveInstrument")) {
+            if (selfInfo.permissions.contains(GET_LIVE_INSTRUMENTS)) {
+                handler.handle(Future.succeededFuture(msg))
+            } else {
+                handler.handle(Future.failedFuture(PermissionAccessDenied(GET_LIVE_INSTRUMENTS).toEventBusException()))
             }
         } else if (msg.headers().get("action") == "clearLiveInstruments") {
             if (selfInfo.permissions.contains(CLEAR_ALL_LIVE_INSTRUMENTS)) {
