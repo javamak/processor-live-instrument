@@ -33,7 +33,6 @@ class LiveInstrumentProcessorProvider : ModuleProvider() {
 
     override fun start() {
         log.info("Starting LiveInstrumentProcessorProvider")
-        InstrumentProcessor.module = manager
 
         val liveInstrumentAnalysis = LiveInstrumentAnalysis()
 
@@ -49,6 +48,8 @@ class LiveInstrumentProcessorProvider : ModuleProvider() {
         val logParserService = manager.find(LogAnalyzerModule.NAME)
             .provider().getService(ILogAnalyzerService::class.java) as LogAnalyzerServiceImpl
         logParserService.addListenerFactory(liveInstrumentAnalysis)
+
+        InstrumentProcessor.bootProcessor(manager)
     }
 
     override fun notifyAfterCompleted() = Unit

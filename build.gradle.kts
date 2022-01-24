@@ -5,7 +5,6 @@ plugins {
     id("com.avast.gradle.docker-compose")
     id("com.github.johnrengelman.shadow")
     kotlin("jvm")
-    kotlin("kapt")
 }
 
 val processorGroup: String by project
@@ -29,6 +28,7 @@ repositories {
 }
 
 dependencies {
+    compileOnly("io.github.microutils:kotlin-logging-jvm:2.1.21")
     compileOnly("org.jooq:joor:$joorVersion")
     compileOnly("com.github.sourceplusplus:processor-dependencies:$processorDependenciesVersion")
     compileOnly("com.github.sourceplusplus.protocol:protocol:$protocolVersion")
@@ -46,16 +46,14 @@ dependencies {
     compileOnly("org.apache.skywalking:meter-analyzer:$skywalkingVersion") { isTransitive = false }
     compileOnly("org.apache.skywalking:log-analyzer:$skywalkingVersion") { isTransitive = false }
     compileOnly("io.vertx:vertx-service-discovery:$vertxVersion")
-    compileOnly("io.vertx:vertx-service-proxy:$vertxVersion")
-    compileOnly("io.vertx:vertx-codegen:$vertxVersion")
+    compileOnly("io.vertx:vertx-service-proxy:4.1.5")
     compileOnly("org.jetbrains.kotlinx:kotlinx-datetime:0.3.2")
-    kapt("io.vertx:vertx-codegen:$vertxVersion:processor")
-    annotationProcessor("io.vertx:vertx-service-proxy:$vertxVersion")
     compileOnly("io.vertx:vertx-tcp-eventbus-bridge:$vertxVersion")
     compileOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.0")
     compileOnly("io.vertx:vertx-core:$vertxVersion")
     compileOnly("io.vertx:vertx-lang-kotlin:$vertxVersion")
     compileOnly("io.vertx:vertx-lang-kotlin-coroutines:$vertxVersion")
+    compileOnly("io.vertx:vertx-auth-common:$vertxVersion")
     compileOnly("com.fasterxml.jackson.datatype:jackson-datatype-jsr310:$jacksonVersion")
     compileOnly("com.fasterxml.jackson.datatype:jackson-datatype-jdk8:$jacksonVersion")
     compileOnly("com.fasterxml.jackson.datatype:jackson-datatype-guava:$jacksonVersion")
@@ -80,7 +78,7 @@ dependencies {
     testImplementation("com.github.sourceplusplus.protocol:protocol:$protocolVersion")
     testImplementation("io.vertx:vertx-tcp-eventbus-bridge:$vertxVersion")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.0")
-    testImplementation(files(".ext/vertx-service-proxy-4.0.2.jar"))
+    testImplementation("io.vertx:vertx-service-proxy:4.1.5")
     testImplementation("org.slf4j:slf4j-api:1.7.32")
     testImplementation("org.slf4j:slf4j-simple:1.7.33")
     testImplementation("com.google.guava:guava:31.0.1-jre")
