@@ -109,7 +109,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
         }
 
         //send active instruments on probe connection
-        vertx.eventBus().consumer<JsonObject>(ProbeAddress.REMOTE_REGISTERED.address) {
+        vertx.eventBus().consumer<JsonObject>("local." + ProbeAddress.REMOTE_REGISTERED.address) {
             //todo: impl batch instrument add
             //todo: more efficient to just send batch add to specific probe instead of publish to all per connection
             //todo: probably need to redo pending boolean. it doesn't make sense here since pending just means

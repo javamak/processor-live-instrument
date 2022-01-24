@@ -29,6 +29,7 @@ import spp.protocol.SourceMarkerServices.Provide.LIVE_INSTRUMENT_SUBSCRIBER
 import spp.protocol.auth.RolePermission
 import spp.protocol.developer.SelfInfo
 import spp.protocol.platform.PlatformAddress
+import spp.protocol.probe.ProbeAddress
 import spp.protocol.processor.ProcessorAddress
 import spp.protocol.service.error.InstrumentAccessDenied
 import spp.protocol.service.error.PermissionAccessDenied
@@ -63,7 +64,11 @@ object InstrumentProcessor : FeedbackProcessor() {
             SourceMarkerServices.Utilize.LIVE_INSTRUMENT,
             JsonObject(), tcpSocket
         )
-
+        FrameHelper.sendFrame(
+            BridgeEventType.REGISTER.name.lowercase(),
+            ProbeAddress.REMOTE_REGISTERED.address,
+            JsonObject(), tcpSocket
+        )
         FrameHelper.sendFrame(
             BridgeEventType.REGISTER.name.lowercase(),
             PlatformAddress.LIVE_BREAKPOINT_APPLIED.address,
