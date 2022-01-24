@@ -133,10 +133,10 @@ tasks {
 
     register("downloadProbe") {
         doLast {
-            val f = File(projectDir, "e2e/spp-probe-0.2.1.jar")
+            val f = File(projectDir, "e2e/spp-probe-$projectVersion.jar")
             if (!f.exists()) {
                 println("Downloading Source++ JVM probe")
-                URL("https://github.com/sourceplusplus/probe-jvm/releases/download/0.2.1/spp-probe-0.2.1.jar")
+                URL("https://github.com/sourceplusplus/probe-jvm/releases/download/$projectVersion/spp-probe-$projectVersion.jar")
                     .openStream().use { input ->
                         FileOutputStream(f).use { output ->
                             input.copyTo(output)
@@ -148,10 +148,10 @@ tasks {
     }
     register("downloadProbeServices") {
         doLast {
-            val f = File(projectDir, "e2e/spp-skywalking-services-0.2.1.jar")
+            val f = File(projectDir, "e2e/spp-skywalking-services-$projectVersion.jar")
             if (!f.exists()) {
                 println("Downloading Source++ JVM probe services")
-                URL("https://github.com/sourceplusplus/probe-jvm/releases/download/0.2.1/spp-skywalking-services-0.2.1.jar")
+                URL("https://github.com/sourceplusplus/probe-jvm/releases/download/$projectVersion/spp-skywalking-services-$projectVersion.jar")
                     .openStream().use { input ->
                         FileOutputStream(f).use { output ->
                             input.copyTo(output)

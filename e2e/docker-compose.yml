@@ -8,6 +8,8 @@ services:
     hostname: e2e-app
 #    ports:
 #      - "5105:5105"
+    environment:
+      - SPP_DISABLE_TLS=true
   spp-platform:
     image: sourceplusplus/spp-platform:latest
     container_name: spp-platform
