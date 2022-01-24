@@ -169,7 +169,9 @@ object InstrumentProcessor : FeedbackProcessor() {
         val promise = Promise.promise<Message<JsonObject>>()
         requestEvent<JsonObject>(
             SourceMarkerServices.Utilize.LIVE_SERVICE, JsonObject(),
-            JsonObject().put("auth-token", msg.headers().get("auth-token")).put("action", "getSelf")
+            JsonObject().apply {
+                if (msg.headers().contains("auth-token")) put("auth-token", msg.headers().get("auth-token"))
+            }.put("action", "getSelf")
         ) {
             if (it.succeeded()) {
                 val selfInfo = Json.decodeValue(it.result().toString(), SelfInfo::class.java)

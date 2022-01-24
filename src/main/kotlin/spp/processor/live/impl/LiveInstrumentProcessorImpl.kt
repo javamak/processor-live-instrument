@@ -157,9 +157,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
             if (it.contains("auth-token")) {
                 accessToken = it.get("auth-token")
                 JWT.parse(it.get("auth-token")).getJsonObject("payload").getString("developer_id")
-            } else {
-                it.get("developer_id")
-            }
+            } else "system"
         }
         addLiveInstrument(selfId, instrument, handler, accessToken)
     }
@@ -282,9 +280,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
             if (it.contains("auth-token")) {
                 accessToken = it.get("auth-token")
                 JWT.parse(it.get("auth-token")).getJsonObject("payload").getString("developer_id")
-            } else {
-                it.get("developer_id")
-            }
+            } else "system"
         }
         log.info(
             "Received add live instrument batch request. Developer: {} - Location(s): {}",
@@ -309,8 +305,9 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
 
     override fun getLiveInstruments(handler: Handler<AsyncResult<List<LiveInstrument>>>) {
         val selfId = Reflect.on(handler).get<MessageImpl<*, *>>("arg\$2").headers().let {
-            it.get("developer_id") ?: JWT.parse(it.get("auth-token"))
-                .getJsonObject("payload").getString("developer_id")
+            if (it.contains("auth-token")) {
+                JWT.parse(it.get("auth-token")).getJsonObject("payload").getString("developer_id")
+            } else "system"
         }
         log.info("Received get live instruments request. Developer: {}", selfId)
 
@@ -323,9 +320,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
             if (it.contains("auth-token")) {
                 accessToken = it.get("auth-token")
                 JWT.parse(it.get("auth-token")).getJsonObject("payload").getString("developer_id")
-            } else {
-                it.get("developer_id")
-            }
+            } else "system"
         }
         log.info("Received remove live instrument request. Developer: {} - Id: {}", selfId, id)
 
@@ -347,9 +342,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
             if (it.contains("auth-token")) {
                 accessToken = it.get("auth-token")
                 JWT.parse(it.get("auth-token")).getJsonObject("payload").getString("developer_id")
-            } else {
-                it.get("developer_id")
-            }
+            } else "system"
         }
         log.info("Received remove live instruments request. Developer: {} - Location: {}", selfId, location)
 
@@ -378,8 +371,9 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
 
     override fun getLiveInstrumentById(id: String, handler: Handler<AsyncResult<LiveInstrument?>>) {
         val selfId = Reflect.on(handler).get<MessageImpl<*, *>>("arg\$2").headers().let {
-            it.get("developer_id") ?: JWT.parse(it.get("auth-token"))
-                .getJsonObject("payload").getString("developer_id")
+            if (it.contains("auth-token")) {
+                JWT.parse(it.get("auth-token")).getJsonObject("payload").getString("developer_id")
+            } else "system"
         }
         log.info("Received get live instrument by id request. Developer: {} - Id: {}", selfId, id)
 
@@ -388,8 +382,9 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
 
     override fun getLiveInstrumentsByIds(ids: List<String>, handler: Handler<AsyncResult<List<LiveInstrument>>>) {
         val selfId = Reflect.on(handler).get<MessageImpl<*, *>>("arg\$2").headers().let {
-            it.get("developer_id") ?: JWT.parse(it.get("auth-token"))
-                .getJsonObject("payload").getString("developer_id")
+            if (it.contains("auth-token")) {
+                JWT.parse(it.get("auth-token")).getJsonObject("payload").getString("developer_id")
+            } else "system"
         }
         log.info("Received get live instruments by ids request. Developer: {} - Ids: {}", selfId, ids)
 
@@ -398,8 +393,9 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
 
     override fun getLiveBreakpoints(handler: Handler<AsyncResult<List<LiveBreakpoint>>>) {
         val selfId = Reflect.on(handler).get<MessageImpl<*, *>>("arg\$2").headers().let {
-            it.get("developer_id") ?: JWT.parse(it.get("auth-token"))
-                .getJsonObject("payload").getString("developer_id")
+            if (it.contains("auth-token")) {
+                JWT.parse(it.get("auth-token")).getJsonObject("payload").getString("developer_id")
+            } else "system"
         }
         log.info("Received get live breakpoints request. Developer: {}", selfId)
 
@@ -408,8 +404,9 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
 
     override fun getLiveLogs(handler: Handler<AsyncResult<List<LiveLog>>>) {
         val selfId = Reflect.on(handler).get<MessageImpl<*, *>>("arg\$2").headers().let {
-            it.get("developer_id") ?: JWT.parse(it.get("auth-token"))
-                .getJsonObject("payload").getString("developer_id")
+            if (it.contains("auth-token")) {
+                JWT.parse(it.get("auth-token")).getJsonObject("payload").getString("developer_id")
+            } else "system"
         }
         log.info("Received get live logs request. Developer: {}", selfId)
 
@@ -418,8 +415,9 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
 
     override fun getLiveMeters(handler: Handler<AsyncResult<List<LiveMeter>>>) {
         val selfId = Reflect.on(handler).get<MessageImpl<*, *>>("arg\$2").headers().let {
-            it.get("developer_id") ?: JWT.parse(it.get("auth-token"))
-                .getJsonObject("payload").getString("developer_id")
+            if (it.contains("auth-token")) {
+                JWT.parse(it.get("auth-token")).getJsonObject("payload").getString("developer_id")
+            } else "system"
         }
         log.info("Received get live meters request. Developer: {}", selfId)
 
@@ -428,8 +426,9 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
 
     override fun getLiveSpans(handler: Handler<AsyncResult<List<LiveSpan>>>) {
         val selfId = Reflect.on(handler).get<MessageImpl<*, *>>("arg\$2").headers().let {
-            it.get("developer_id") ?: JWT.parse(it.get("auth-token"))
-                .getJsonObject("payload").getString("developer_id")
+            if (it.contains("auth-token")) {
+                JWT.parse(it.get("auth-token")).getJsonObject("payload").getString("developer_id")
+            } else "system"
         }
         log.info("Received get live spans request. Developer: {}", selfId)
 
@@ -442,9 +441,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
             if (it.contains("auth-token")) {
                 accessToken = it.get("auth-token")
                 JWT.parse(it.get("auth-token")).getJsonObject("payload").getString("developer_id")
-            } else {
-                it.get("developer_id")
-            }
+            } else "system"
         }
         log.info("Received clear live instruments request. Developer: {}", selfId)
 
@@ -457,9 +454,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
             if (it.contains("auth-token")) {
                 accessToken = it.get("auth-token")
                 JWT.parse(it.get("auth-token")).getJsonObject("payload").getString("developer_id")
-            } else {
-                it.get("developer_id")
-            }
+            } else "system"
         }
         log.info("Received clear live instruments request. Developer: {}", selfId)
 
@@ -479,9 +474,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
             if (it.contains("auth-token")) {
                 accessToken = it.get("auth-token")
                 JWT.parse(it.get("auth-token")).getJsonObject("payload").getString("developer_id")
-            } else {
-                it.get("developer_id")
-            }
+            } else "system"
         }
         log.info("Received clear live breakpoints request. Developer: {}", selfId)
 
@@ -494,9 +487,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
             if (it.contains("auth-token")) {
                 accessToken = it.get("auth-token")
                 JWT.parse(it.get("auth-token")).getJsonObject("payload").getString("developer_id")
-            } else {
-                it.get("developer_id")
-            }
+            } else "system"
         }
         log.info("Received clear live logs request. Developer: {}", selfId)
 
@@ -509,9 +500,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
             if (it.contains("auth-token")) {
                 accessToken = it.get("auth-token")
                 JWT.parse(it.get("auth-token")).getJsonObject("payload").getString("developer_id")
-            } else {
-                it.get("developer_id")
-            }
+            } else "system"
         }
         log.info("Received clear live meters request. Developer: {}", selfId)
 
@@ -524,9 +513,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
             if (it.contains("auth-token")) {
                 accessToken = it.get("auth-token")
                 JWT.parse(it.get("auth-token")).getJsonObject("payload").getString("developer_id")
-            } else {
-                it.get("developer_id")
-            }
+            } else "system"
         }
         log.info("Received clear live spans request. Developer: {}", selfId)
 
@@ -970,7 +957,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
         val promise = Promise.promise<JsonArray>()
         InstrumentProcessor.requestEvent<JsonArray>(
             SourceMarkerServices.Utilize.LIVE_SERVICE, JsonObject(),
-            JsonObject().put("auth-token", accessToken).put("action", "getActiveProbes")
+            JsonObject().apply { accessToken?.let { put("auth-token", accessToken) } }.put("action", "getActiveProbes")
         ) {
             if (it.succeeded()) {
                 promise.complete(it.result())
