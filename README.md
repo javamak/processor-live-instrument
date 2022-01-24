@@ -1,8 +1,8 @@
 # ![](https://github.com/sourceplusplus/live-platform/blob/master/.github/media/sourcepp_logo.svg)
 
-[![License](https://img.shields.io/github/license/sourceplusplus/processor-instrument)](LICENSE)
-![GitHub release](https://img.shields.io/github/v/release/sourceplusplus/processor-instrument?include_prereleases)
-[![Build](https://github.com/sourceplusplus/processor-instrument/actions/workflows/build.yml/badge.svg)](https://github.com/sourceplusplus/processor-instrument/actions/workflows/build.yml)
+[![License](https://img.shields.io/github/license/sourceplusplus/processor-live-instrument)](LICENSE)
+![GitHub release](https://img.shields.io/github/v/release/sourceplusplus/processor-live-instrument?include_prereleases)
+[![Build](https://github.com/sourceplusplus/processor-live-instrument/actions/workflows/build.yml/badge.svg)](https://github.com/sourceplusplus/processor-live-instrument/actions/workflows/build.yml)
 
 ## What is this?
 
