@@ -8,19 +8,17 @@ plugins {
 }
 
 val processorGroup: String by project
-val instrumentProcessorVersion: String by project
-val processorDependenciesVersion: String by project
+val projectVersion: String by project
 val skywalkingVersion: String by project
 val vertxVersion: String by project
 val grpcVersion: String by project
-val protocolVersion: String by project
 val jacksonVersion: String by project
 val kotlinVersion: String by project
 val joorVersion: String by project
 val jupiterVersion: String by project
 
 group = processorGroup
-version = instrumentProcessorVersion
+version = projectVersion
 
 repositories {
     mavenCentral()
@@ -30,8 +28,8 @@ repositories {
 dependencies {
     compileOnly("io.github.microutils:kotlin-logging-jvm:2.1.21")
     compileOnly("org.jooq:joor:$joorVersion")
-    compileOnly("com.github.sourceplusplus:processor-dependencies:$processorDependenciesVersion")
-    compileOnly("com.github.sourceplusplus.protocol:protocol:$protocolVersion")
+    compileOnly("com.github.sourceplusplus:processor-dependencies:$projectVersion")
+    compileOnly("com.github.sourceplusplus.protocol:protocol:$projectVersion")
     compileOnly("org.jetbrains.kotlin:kotlin-reflect:$kotlinVersion")
     compileOnly("org.apache.skywalking:apm-network:$skywalkingVersion") { isTransitive = false }
     compileOnly("org.apache.skywalking:library-server:$skywalkingVersion") { isTransitive = false }
@@ -75,7 +73,7 @@ dependencies {
     testImplementation("io.vertx:vertx-junit5:$vertxVersion")
     testImplementation("io.vertx:vertx-web-client:$vertxVersion")
     testImplementation("io.vertx:vertx-lang-kotlin-coroutines:$vertxVersion")
-    testImplementation("com.github.sourceplusplus.protocol:protocol:$protocolVersion")
+    testImplementation("com.github.sourceplusplus.protocol:protocol:$projectVersion")
     testImplementation("io.vertx:vertx-tcp-eventbus-bridge:$vertxVersion")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.0")
     testImplementation("io.vertx:vertx-service-proxy:4.1.5")
@@ -165,10 +163,10 @@ tasks {
     }
     register("downloadProcessorDependencies") {
         doLast {
-            val f = File(projectDir, "e2e/spp-processor-dependencies-$processorDependenciesVersion.jar")
+            val f = File(projectDir, "e2e/spp-processor-dependencies-$projectVersion.jar")
             if (!f.exists()) {
                 println("Downloading Source++ processor dependencies")
-                URL("https://github.com/sourceplusplus/processor-dependencies/releases/download/$processorDependenciesVersion/spp-processor-dependencies-$processorDependenciesVersion.jar")
+                URL("https://github.com/sourceplusplus/processor-dependencies/releases/download/$projectVersion/spp-processor-dependencies-$projectVersion.jar")
                     .openStream().use { input ->
                         FileOutputStream(f).use { output ->
                             input.copyTo(output)
@@ -181,7 +179,7 @@ tasks {
     register<Copy>("updateDockerFiles") {
         dependsOn("shadowJar")
 
-        from("build/libs/spp-processor-instrument-$version.jar")
+        from("build/libs/spp-processor-instrument-$projectVersion.jar")
         into(File(projectDir, "e2e"))
     }
 
