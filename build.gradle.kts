@@ -86,7 +86,7 @@ dependencies {
 }
 
 tasks.getByName<com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar>("shadowJar") {
-    archiveBaseName.set("spp-processor-instrument")
+    archiveBaseName.set("spp-processor-live-instrument")
     archiveClassifier.set("")
 
     exclude("DebugProbesKt.bin")
@@ -179,7 +179,7 @@ tasks {
     register<Copy>("updateDockerFiles") {
         dependsOn("shadowJar")
 
-        from("build/libs/spp-processor-instrument-$projectVersion.jar")
+        from("build/libs/spp-processor-live-instrument-$projectVersion.jar")
         into(File(projectDir, "e2e"))
     }
 
