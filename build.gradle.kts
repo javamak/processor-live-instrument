@@ -16,6 +16,7 @@ val jacksonVersion: String by project
 val kotlinVersion: String by project
 val joorVersion: String by project
 val jupiterVersion: String by project
+val slf4jVersion: String by project
 
 group = processorGroup
 version = projectVersion
@@ -56,7 +57,7 @@ dependencies {
     compileOnly("com.fasterxml.jackson.datatype:jackson-datatype-jdk8:$jacksonVersion")
     compileOnly("com.fasterxml.jackson.datatype:jackson-datatype-guava:$jacksonVersion")
     compileOnly("com.fasterxml.jackson.module:jackson-module-kotlin:$jacksonVersion")
-    compileOnly("org.slf4j:slf4j-api:1.7.33")
+    compileOnly("org.slf4j:slf4j-api:$slf4jVersion")
     compileOnly("com.google.guava:guava:31.0.1-jre")
     compileOnly("io.grpc:grpc-stub:$grpcVersion") {
         exclude(mapOf("group" to "com.google.guava", "module" to "guava"))
@@ -78,7 +79,7 @@ dependencies {
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.0")
     testImplementation("io.vertx:vertx-service-proxy:4.1.5")
     testImplementation("org.slf4j:slf4j-api:1.7.32")
-    testImplementation("org.slf4j:slf4j-simple:1.7.33")
+    testImplementation("org.slf4j:slf4j-simple:$slf4jVersion")
     testImplementation("com.google.guava:guava:31.0.1-jre")
     testImplementation("org.apache.skywalking:agent-analyzer:$skywalkingVersion")
     testImplementation("org.apache.skywalking:log-analyzer:$skywalkingVersion")
