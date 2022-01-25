@@ -45,7 +45,7 @@ dependencies {
     compileOnly("org.apache.skywalking:meter-analyzer:$skywalkingVersion") { isTransitive = false }
     compileOnly("org.apache.skywalking:log-analyzer:$skywalkingVersion") { isTransitive = false }
     compileOnly("io.vertx:vertx-service-discovery:$vertxVersion")
-    compileOnly("io.vertx:vertx-service-proxy:4.1.5")
+    compileOnly("io.vertx:vertx-service-proxy:4.2.4")
     compileOnly("org.jetbrains.kotlinx:kotlinx-datetime:0.3.2")
     compileOnly("io.vertx:vertx-tcp-eventbus-bridge:$vertxVersion")
     compileOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.0")
