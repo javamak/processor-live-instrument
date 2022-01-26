@@ -16,6 +16,7 @@ import org.junit.jupiter.api.BeforeAll
 import org.slf4j.LoggerFactory
 import spp.protocol.SourceMarkerServices
 import spp.protocol.extend.TCPServiceFrameParser
+import spp.protocol.platform.PlatformAddress
 import spp.protocol.status.MarkerConnection
 import java.util.*
 
@@ -88,7 +89,7 @@ open class ProcessorIntegrationTest {
                 }
 
                 FrameHelper.sendFrame(
-                    BridgeEventType.SEND.name.toLowerCase(), SourceMarkerServices.Status.MARKER_CONNECTED,
+                    BridgeEventType.SEND.name.toLowerCase(), PlatformAddress.MARKER_CONNECTED.address,
                     replyAddress, JsonObject(), true, JsonObject.mapFrom(pc), tcpSocket
                 )
                 withTimeout(5000) {

@@ -58,11 +58,11 @@ import spp.protocol.instrument.span.LiveSpan
 import spp.protocol.instrument.span.event.LiveSpanRemoved
 import spp.protocol.platform.PlatformAddress
 import spp.protocol.platform.client.ActiveProbe
-import spp.protocol.platform.error.EventBusUtil
 import spp.protocol.probe.ProbeAddress
 import spp.protocol.probe.command.LiveInstrumentCommand
 import spp.protocol.probe.command.LiveInstrumentContext
 import spp.protocol.processor.ProcessorAddress
+import spp.protocol.service.error.LiveInstrumentException
 import spp.protocol.service.live.LiveInstrumentService
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
@@ -1057,7 +1057,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
         val waitingHandler = waitingApply.remove(breakpoint.id)
         if (waitingHandler != null) {
             if (cause?.startsWith("EventBusException") == true) {
-                val ebException = EventBusUtil.fromEventBusException(cause)
+                val ebException = fromEventBusException(cause)
                 waitingHandler.handle(Future.failedFuture(ebException))
             } else {
                 TODO("$cause")
@@ -1101,7 +1101,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
         val waitingHandler = waitingApply.remove(liveLog.id)
         if (waitingHandler != null) {
             if (cause?.startsWith("EventBusException") == true) {
-                val ebException = EventBusUtil.fromEventBusException(cause)
+                val ebException = fromEventBusException(cause)
                 waitingHandler.handle(Future.failedFuture(ebException))
             } else {
                 TODO("$cause")
@@ -1145,7 +1145,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
         val waitingHandler = waitingApply.remove(meter.id)
         if (waitingHandler != null) {
             if (cause?.startsWith("EventBusException") == true) {
-                val ebException = EventBusUtil.fromEventBusException(cause)
+                val ebException = fromEventBusException(cause)
                 waitingHandler.handle(Future.failedFuture(ebException))
             } else {
                 TODO("$cause")
@@ -1189,7 +1189,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
         val waitingHandler = waitingApply.remove(span.id)
         if (waitingHandler != null) {
             if (cause?.startsWith("EventBusException") == true) {
-                val ebException = EventBusUtil.fromEventBusException(cause)
+                val ebException = fromEventBusException(cause)
                 waitingHandler.handle(Future.failedFuture(ebException))
             } else {
                 TODO("$cause")
@@ -1535,5 +1535,25 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
             }
         }
         handler.handle(Future.succeededFuture(JsonObject().put("values", JsonArray(values))))
+    }
+
+    fun fromEventBusException(exception: String): Exception {
+        return if (exception.startsWith("EventBusException")) {
+            var exceptionType = exception.substringAfter("EventBusException:")
+            exceptionType = exceptionType.substringBefore("[")
+            var exceptionParams = exception.substringAfter("[")
+            exceptionParams = exceptionParams.substringBefore("]")
+            val exceptionMessage = exception.substringAfter("]: ").trim { it <= ' ' }
+            if (LiveInstrumentException::class.java.simpleName == exceptionType) {
+                LiveInstrumentException(
+                    LiveInstrumentException.ErrorType.valueOf(exceptionParams),
+                    exceptionMessage
+                ).toEventBusException()
+            } else {
+                throw UnsupportedOperationException(exceptionType)
+            }
+        } else {
+            throw IllegalArgumentException(exception)
+        }
     }
 }
