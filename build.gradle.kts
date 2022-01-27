@@ -77,7 +77,7 @@ dependencies {
     testImplementation("com.github.sourceplusplus.protocol:protocol:$projectVersion")
     testImplementation("io.vertx:vertx-tcp-eventbus-bridge:$vertxVersion")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.0")
-    testImplementation("io.vertx:vertx-service-proxy:4.1.5")
+    testImplementation("io.vertx:vertx-service-proxy:$vertxVersion")
     testImplementation("org.slf4j:slf4j-api:$slf4jVersion")
     testImplementation("org.slf4j:slf4j-simple:$slf4jVersion")
     testImplementation("com.google.guava:guava:31.0.1-jre")
