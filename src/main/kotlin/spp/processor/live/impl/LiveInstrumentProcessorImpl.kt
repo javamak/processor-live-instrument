@@ -4,6 +4,7 @@ import io.vertx.core.AsyncResult
 import io.vertx.core.Future
 import io.vertx.core.Handler
 import io.vertx.core.Promise
+import io.vertx.core.eventbus.Message
 import io.vertx.core.eventbus.ReplyException
 import io.vertx.core.eventbus.ReplyFailure
 import io.vertx.core.eventbus.impl.MessageImpl
@@ -478,7 +479,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
         }
         log.info("Received clear live breakpoints request. Developer: {}", selfId)
 
-        clearLiveBreakpoints(selfId, accessToken, handler)
+        clearLiveInstruments(selfId, accessToken, LiveInstrumentType.BREAKPOINT, handler)
     }
 
     override fun clearLiveLogs(handler: Handler<AsyncResult<Boolean>>) {
@@ -491,7 +492,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
         }
         log.info("Received clear live logs request. Developer: {}", selfId)
 
-        clearLiveLogs(selfId, accessToken, handler)
+        clearLiveInstruments(selfId, accessToken, LiveInstrumentType.LOG, handler)
     }
 
     override fun clearLiveMeters(handler: Handler<AsyncResult<Boolean>>) {
@@ -504,7 +505,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
         }
         log.info("Received clear live meters request. Developer: {}", selfId)
 
-        clearLiveMeters(selfId, accessToken, handler)
+        clearLiveInstruments(selfId, accessToken, LiveInstrumentType.METER, handler)
     }
 
     override fun clearLiveSpans(handler: Handler<AsyncResult<Boolean>>) {
@@ -517,7 +518,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
         }
         log.info("Received clear live spans request. Developer: {}", selfId)
 
-        clearLiveSpans(selfId, accessToken, handler)
+        clearLiveInstruments(selfId, accessToken, LiveInstrumentType.SPAN, handler)
     }
 
     private suspend fun setupLiveMeter(liveMeter: LiveMeter) {
@@ -533,261 +534,301 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
 
     private fun listenForLiveBreakpoints() {
         vertx.eventBus().localConsumer<JsonObject>("local." + PlatformAddress.LIVE_BREAKPOINT_APPLIED.address) {
-            if (log.isTraceEnabled) log.trace("Got live breakpoint applied: {}", it.body())
-            val bp = Json.decodeValue(it.body().toString(), LiveBreakpoint::class.java)
-            liveInstruments.forEach {
-                if (it.instrument.id == bp.id) {
-                    log.info("Live breakpoint applied. Id: {}", it.instrument.id)
-                    val appliedBp = (it.instrument as LiveBreakpoint).copy(
-                        applied = true,
-                        pending = false
-                    )
-                    (appliedBp.meta as MutableMap<String, Any>)["applied_at"] = System.currentTimeMillis().toString()
-
-                    val devInstrument = DeveloperInstrument(it.selfId, it.accessToken, appliedBp)
-                    liveInstruments.remove(it)
-                    liveInstruments.add(devInstrument)
-
-                    waitingApply.remove(appliedBp.id)?.handle(Future.succeededFuture(devInstrument))
-
-                    vertx.eventBus().publish(
-                        SourceMarkerServices.Provide.LIVE_INSTRUMENT_SUBSCRIBER,
-                        JsonObject.mapFrom(
-                            LiveInstrumentEvent(
-                                LiveInstrumentEventType.BREAKPOINT_APPLIED,
-                                Json.encode(appliedBp)
-                            )
-                        )
-                    )
-                    if (log.isTraceEnabled) log.trace("Published live breakpoint applied")
-                    return@forEach
-                }
-            }
+            handleBreakpointApplied(it)
         }
         vertx.eventBus().localConsumer<JsonObject>("local." + PlatformAddress.LIVE_BREAKPOINT_REMOVED.address) {
-            if (log.isTraceEnabled) log.trace("Got live breakpoint removed: {}", it.body())
-            val bpCommand = it.body().getString("command")
-            val bpData = if (bpCommand != null) {
-                val command = Json.decodeValue(bpCommand, LiveInstrumentCommand::class.java)
-                JsonObject(command.context.liveInstruments[0]) //todo: check for multiple
-            } else {
-                JsonObject(it.body().getString("breakpoint"))
-            }
-
-            val instrumentRemoval = liveInstruments.find { find -> find.instrument.id == bpData.getString("id") }
-            if (instrumentRemoval != null) {
-                //publish remove command to all probes & markers
-                removeLiveBreakpoint(
-                    instrumentRemoval.selfId,
-                    instrumentRemoval.accessToken,
-                    Instant.fromEpochMilliseconds(it.body().getLong("occurredAt")),
-                    instrumentRemoval.instrument as LiveBreakpoint,
-                    it.body().getString("cause")
-                )
-            }
+            handleBreakpointRemoved(it)
         }
         vertx.eventBus().consumer<JsonObject>(ProcessorAddress.BREAKPOINT_HIT.address) {
-            if (log.isTraceEnabled) log.trace("Live breakpoint hit: {}", it.body())
-            val bpHit = Json.decodeValue(it.body().toString(), LiveBreakpointHit::class.java)
-            val instrument = getLiveInstrumentById(bpHit.breakpointId)
-            if (instrument != null) {
-                val instrumentMeta = instrument.meta as MutableMap<String, Any>
-                if ((instrumentMeta["hit_count"] as AtomicInteger?)?.incrementAndGet() == 1) {
-                    instrumentMeta["first_hit_at"] = System.currentTimeMillis().toString()
-                }
-                instrumentMeta["last_hit_at"] = System.currentTimeMillis().toString()
-            }
+            handleBreakpointHit(it)
+        }
+    }
 
-            vertx.eventBus().publish(
-                SourceMarkerServices.Provide.LIVE_INSTRUMENT_SUBSCRIBER,
-                JsonObject.mapFrom(LiveInstrumentEvent(LiveInstrumentEventType.BREAKPOINT_HIT, Json.encode(bpHit)))
+    private fun handleBreakpointHit(it: Message<JsonObject>) {
+        if (log.isTraceEnabled) log.trace("Live breakpoint hit: {}", it.body())
+        val bpHit = Json.decodeValue(it.body().toString(), LiveBreakpointHit::class.java)
+        val instrument = getLiveInstrumentById(bpHit.breakpointId)
+        if (instrument != null) {
+            val instrumentMeta = instrument.meta as MutableMap<String, Any>
+            if ((instrumentMeta["hit_count"] as AtomicInteger?)?.incrementAndGet() == 1) {
+                instrumentMeta["first_hit_at"] = System.currentTimeMillis().toString()
+            }
+            instrumentMeta["last_hit_at"] = System.currentTimeMillis().toString()
+        }
+
+        vertx.eventBus().publish(
+            SourceMarkerServices.Provide.LIVE_INSTRUMENT_SUBSCRIBER,
+            JsonObject.mapFrom(LiveInstrumentEvent(LiveInstrumentEventType.BREAKPOINT_HIT, Json.encode(bpHit)))
+        )
+        if (log.isTraceEnabled) log.trace("Published live breakpoint hit")
+    }
+
+    private fun handleBreakpointRemoved(it: Message<JsonObject>) {
+        if (log.isTraceEnabled) log.trace("Got live breakpoint removed: {}", it.body())
+        val bpCommand = it.body().getString("command")
+        val bpData = if (bpCommand != null) {
+            val command = Json.decodeValue(bpCommand, LiveInstrumentCommand::class.java)
+            JsonObject(command.context.liveInstruments[0]) //todo: check for multiple
+        } else {
+            JsonObject(it.body().getString("breakpoint"))
+        }
+
+        val instrumentRemoval = liveInstruments.find { find -> find.instrument.id == bpData.getString("id") }
+        if (instrumentRemoval != null) {
+            //publish remove command to all probes & markers
+            removeLiveBreakpoint(
+                instrumentRemoval.selfId,
+                instrumentRemoval.accessToken,
+                Instant.fromEpochMilliseconds(it.body().getLong("occurredAt")),
+                instrumentRemoval.instrument as LiveBreakpoint,
+                it.body().getString("cause")
             )
-            if (log.isTraceEnabled) log.trace("Published live breakpoint hit")
+        }
+    }
+
+    private fun handleBreakpointApplied(it: Message<JsonObject>) {
+        if (log.isTraceEnabled) log.trace("Got live breakpoint applied: {}", it.body())
+        val bp = Json.decodeValue(it.body().toString(), LiveBreakpoint::class.java)
+        liveInstruments.forEach {
+            if (it.instrument.id == bp.id) {
+                log.info("Live breakpoint applied. Id: {}", it.instrument.id)
+                val appliedBp = (it.instrument as LiveBreakpoint).copy(
+                    applied = true,
+                    pending = false
+                )
+                (appliedBp.meta as MutableMap<String, Any>)["applied_at"] = System.currentTimeMillis().toString()
+
+                val devInstrument = DeveloperInstrument(it.selfId, it.accessToken, appliedBp)
+                liveInstruments.remove(it)
+                liveInstruments.add(devInstrument)
+
+                waitingApply.remove(appliedBp.id)?.handle(Future.succeededFuture(devInstrument))
+
+                vertx.eventBus().publish(
+                    SourceMarkerServices.Provide.LIVE_INSTRUMENT_SUBSCRIBER,
+                    JsonObject.mapFrom(
+                        LiveInstrumentEvent(
+                            LiveInstrumentEventType.BREAKPOINT_APPLIED,
+                            Json.encode(appliedBp)
+                        )
+                    )
+                )
+                if (log.isTraceEnabled) log.trace("Published live breakpoint applied")
+                return@forEach
+            }
         }
     }
 
     private fun listenForLiveLogs() {
         vertx.eventBus().consumer<JsonObject>(ProcessorAddress.LOG_HIT.address) {
-            if (log.isTraceEnabled) log.trace("Live log hit: {}", it.body())
-            val logHit = Json.decodeValue(it.body().toString(), LiveLogHit::class.java)
-            val instrument = getLiveInstrumentById(logHit.logId)
-            if (instrument != null) {
-                val instrumentMeta = instrument.meta as MutableMap<String, Any>
-                if ((instrumentMeta["hit_count"] as AtomicInteger?)?.incrementAndGet() == 1) {
-                    instrumentMeta["first_hit_at"] = System.currentTimeMillis().toString()
-                }
-                instrumentMeta["last_hit_at"] = System.currentTimeMillis().toString()
-            }
-
-            vertx.eventBus().publish(
-                SourceMarkerServices.Provide.LIVE_INSTRUMENT_SUBSCRIBER,
-                JsonObject.mapFrom(LiveInstrumentEvent(LiveInstrumentEventType.LOG_HIT, it.body().toString()))
-            )
-            if (log.isTraceEnabled) log.trace("Published live log hit")
+            handleLogHit(it)
         }
         vertx.eventBus().localConsumer<JsonObject>("local." + PlatformAddress.LIVE_LOG_APPLIED.address) {
-            val liveLog = Json.decodeValue(it.body().toString(), LiveLog::class.java)
-            liveInstruments.forEach {
-                if (it.instrument.id == liveLog.id) {
-                    log.info("Live log applied. Id: {}", it.instrument.id)
-                    val appliedLog = (it.instrument as LiveLog).copy(
-                        applied = true,
-                        pending = false
-                    )
-                    (appliedLog.meta as MutableMap<String, Any>)["applied_at"] = System.currentTimeMillis().toString()
-
-                    val devInstrument = DeveloperInstrument(it.selfId, it.accessToken, appliedLog)
-                    liveInstruments.remove(it)
-                    liveInstruments.add(devInstrument)
-
-                    waitingApply.remove(appliedLog.id)?.handle(Future.succeededFuture(devInstrument))
-
-                    vertx.eventBus().publish(
-                        SourceMarkerServices.Provide.LIVE_INSTRUMENT_SUBSCRIBER,
-                        JsonObject.mapFrom(
-                            LiveInstrumentEvent(
-                                LiveInstrumentEventType.LOG_APPLIED,
-                                Json.encode(appliedLog)
-                            )
-                        )
-                    )
-                    if (log.isTraceEnabled) log.trace("Published live log applied")
-                    return@forEach
-                }
-            }
+            handleLogApplied(it)
         }
         vertx.eventBus().localConsumer<JsonObject>("local." + PlatformAddress.LIVE_LOG_REMOVED.address) {
-            if (log.isTraceEnabled) log.trace("Got live log removed: {}", it.body())
-            val logCommand = it.body().getString("command")
-            val logData = if (logCommand != null) {
-                val command = Json.decodeValue(logCommand, LiveInstrumentCommand::class.java)
-                JsonObject(command.context.liveInstruments[0]) //todo: check for multiple
-            } else {
-                JsonObject(it.body().getString("log"))
-            }
+            handleLogRemoved(it)
+        }
+    }
 
-            val instrumentRemoval = liveInstruments.find { find -> find.instrument.id == logData.getString("id") }
-            if (instrumentRemoval != null) {
-                //publish remove command to all probes & markers
-                removeLiveLog(
-                    instrumentRemoval.selfId,
-                    instrumentRemoval.accessToken,
-                    Instant.fromEpochMilliseconds(it.body().getLong("occurredAt")),
-                    instrumentRemoval.instrument as LiveLog,
-                    it.body().getString("cause")
+    private fun handleLogRemoved(it: Message<JsonObject>) {
+        if (log.isTraceEnabled) log.trace("Got live log removed: {}", it.body())
+        val logCommand = it.body().getString("command")
+        val logData = if (logCommand != null) {
+            val command = Json.decodeValue(logCommand, LiveInstrumentCommand::class.java)
+            JsonObject(command.context.liveInstruments[0]) //todo: check for multiple
+        } else {
+            JsonObject(it.body().getString("log"))
+        }
+
+        val instrumentRemoval = liveInstruments.find { find -> find.instrument.id == logData.getString("id") }
+        if (instrumentRemoval != null) {
+            //publish remove command to all probes & markers
+            removeLiveLog(
+                instrumentRemoval.selfId,
+                instrumentRemoval.accessToken,
+                Instant.fromEpochMilliseconds(it.body().getLong("occurredAt")),
+                instrumentRemoval.instrument as LiveLog,
+                it.body().getString("cause")
+            )
+        }
+    }
+
+    private fun handleLogApplied(it: Message<JsonObject>) {
+        val liveLog = Json.decodeValue(it.body().toString(), LiveLog::class.java)
+        liveInstruments.forEach {
+            if (it.instrument.id == liveLog.id) {
+                log.info("Live log applied. Id: {}", it.instrument.id)
+                val appliedLog = (it.instrument as LiveLog).copy(
+                    applied = true,
+                    pending = false
                 )
+                (appliedLog.meta as MutableMap<String, Any>)["applied_at"] = System.currentTimeMillis().toString()
+
+                val devInstrument = DeveloperInstrument(it.selfId, it.accessToken, appliedLog)
+                liveInstruments.remove(it)
+                liveInstruments.add(devInstrument)
+
+                waitingApply.remove(appliedLog.id)?.handle(Future.succeededFuture(devInstrument))
+
+                vertx.eventBus().publish(
+                    SourceMarkerServices.Provide.LIVE_INSTRUMENT_SUBSCRIBER,
+                    JsonObject.mapFrom(
+                        LiveInstrumentEvent(
+                            LiveInstrumentEventType.LOG_APPLIED,
+                            Json.encode(appliedLog)
+                        )
+                    )
+                )
+                if (log.isTraceEnabled) log.trace("Published live log applied")
+                return@forEach
             }
         }
     }
 
+    private fun handleLogHit(it: Message<JsonObject>) {
+        if (log.isTraceEnabled) log.trace("Live log hit: {}", it.body())
+        val logHit = Json.decodeValue(it.body().toString(), LiveLogHit::class.java)
+        val instrument = getLiveInstrumentById(logHit.logId)
+        if (instrument != null) {
+            val instrumentMeta = instrument.meta as MutableMap<String, Any>
+            if ((instrumentMeta["hit_count"] as AtomicInteger?)?.incrementAndGet() == 1) {
+                instrumentMeta["first_hit_at"] = System.currentTimeMillis().toString()
+            }
+            instrumentMeta["last_hit_at"] = System.currentTimeMillis().toString()
+        }
+
+        vertx.eventBus().publish(
+            SourceMarkerServices.Provide.LIVE_INSTRUMENT_SUBSCRIBER,
+            JsonObject.mapFrom(LiveInstrumentEvent(LiveInstrumentEventType.LOG_HIT, it.body().toString()))
+        )
+        if (log.isTraceEnabled) log.trace("Published live log hit")
+    }
+
     private fun listenForLiveMeters() {
         vertx.eventBus().localConsumer<JsonObject>("local." + PlatformAddress.LIVE_METER_APPLIED.address) {
-            val liveMeter = Json.decodeValue(it.body().toString(), LiveMeter::class.java)
-            liveInstruments.forEach {
-                if (it.instrument.id == liveMeter.id) {
-                    log.info("Live meter applied. Id: {}", it.instrument.id)
-                    val appliedMeter = (it.instrument as LiveMeter).copy(
-                        applied = true,
-                        pending = false
-                    )
-                    (appliedMeter.meta as MutableMap<String, Any>)["applied_at"] = System.currentTimeMillis().toString()
-
-                    val devInstrument = DeveloperInstrument(it.selfId, it.accessToken, appliedMeter)
-                    liveInstruments.remove(it)
-                    liveInstruments.add(devInstrument)
-
-                    waitingApply.remove(appliedMeter.id)?.handle(Future.succeededFuture(devInstrument))
-
-                    vertx.eventBus().publish(
-                        SourceMarkerServices.Provide.LIVE_INSTRUMENT_SUBSCRIBER,
-                        JsonObject.mapFrom(
-                            LiveInstrumentEvent(
-                                LiveInstrumentEventType.METER_APPLIED,
-                                Json.encode(appliedMeter)
-                            )
-                        )
-                    )
-                    if (log.isTraceEnabled) log.trace("Published live meter applied")
-                    return@forEach
-                }
-            }
+            handleMeterApplied(it)
         }
         vertx.eventBus().localConsumer<JsonObject>("local." + PlatformAddress.LIVE_METER_REMOVED.address) {
-            if (log.isTraceEnabled) log.trace("Got live meter removed: {}", it.body())
-            val meterCommand = it.body().getString("command")
-            val meterData = if (meterCommand != null) {
-                val command = Json.decodeValue(meterCommand, LiveInstrumentCommand::class.java)
-                JsonObject(command.context.liveInstruments[0]) //todo: check for multiple
-            } else {
-                JsonObject(it.body().getString("meter"))
-            }
+            handleMeterRemoved(it)
+        }
+    }
 
-            val instrumentRemoval = liveInstruments.find { find -> find.instrument.id == meterData.getString("id") }
-            if (instrumentRemoval != null) {
-                //publish remove command to all probes & markers
-                removeLiveMeter(
-                    instrumentRemoval.selfId,
-                    instrumentRemoval.accessToken,
-                    Instant.fromEpochMilliseconds(it.body().getLong("occurredAt")),
-                    instrumentRemoval.instrument as LiveMeter,
-                    it.body().getString("cause")
+    private fun handleMeterRemoved(it: Message<JsonObject>) {
+        if (log.isTraceEnabled) log.trace("Got live meter removed: {}", it.body())
+        val meterCommand = it.body().getString("command")
+        val meterData = if (meterCommand != null) {
+            val command = Json.decodeValue(meterCommand, LiveInstrumentCommand::class.java)
+            JsonObject(command.context.liveInstruments[0]) //todo: check for multiple
+        } else {
+            JsonObject(it.body().getString("meter"))
+        }
+
+        val instrumentRemoval = liveInstruments.find { find -> find.instrument.id == meterData.getString("id") }
+        if (instrumentRemoval != null) {
+            //publish remove command to all probes & markers
+            removeLiveMeter(
+                instrumentRemoval.selfId,
+                instrumentRemoval.accessToken,
+                Instant.fromEpochMilliseconds(it.body().getLong("occurredAt")),
+                instrumentRemoval.instrument as LiveMeter,
+                it.body().getString("cause")
+            )
+        }
+    }
+
+    private fun handleMeterApplied(it: Message<JsonObject>) {
+        val liveMeter = Json.decodeValue(it.body().toString(), LiveMeter::class.java)
+        liveInstruments.forEach {
+            if (it.instrument.id == liveMeter.id) {
+                log.info("Live meter applied. Id: {}", it.instrument.id)
+                val appliedMeter = (it.instrument as LiveMeter).copy(
+                    applied = true,
+                    pending = false
                 )
+                (appliedMeter.meta as MutableMap<String, Any>)["applied_at"] = System.currentTimeMillis().toString()
+
+                val devInstrument = DeveloperInstrument(it.selfId, it.accessToken, appliedMeter)
+                liveInstruments.remove(it)
+                liveInstruments.add(devInstrument)
+
+                waitingApply.remove(appliedMeter.id)?.handle(Future.succeededFuture(devInstrument))
+
+                vertx.eventBus().publish(
+                    SourceMarkerServices.Provide.LIVE_INSTRUMENT_SUBSCRIBER,
+                    JsonObject.mapFrom(
+                        LiveInstrumentEvent(
+                            LiveInstrumentEventType.METER_APPLIED,
+                            Json.encode(appliedMeter)
+                        )
+                    )
+                )
+                if (log.isTraceEnabled) log.trace("Published live meter applied")
+                return@forEach
             }
         }
     }
 
     private fun listenForLiveSpans() {
         vertx.eventBus().localConsumer<JsonObject>("local." + PlatformAddress.LIVE_SPAN_APPLIED.address) {
-            val liveSpan = Json.decodeValue(it.body().toString(), LiveSpan::class.java)
-            liveInstruments.forEach {
-                if (it.instrument.id == liveSpan.id) {
-                    log.info("Live span applied. Id: {}", it.instrument.id)
-                    val appliedSpan = (it.instrument as LiveSpan).copy(
-                        applied = true,
-                        pending = false
-                    )
-                    (appliedSpan.meta as MutableMap<String, Any>)["applied_at"] = System.currentTimeMillis().toString()
-
-                    val devInstrument = DeveloperInstrument(it.selfId, it.accessToken, appliedSpan)
-                    liveInstruments.remove(it)
-                    liveInstruments.add(devInstrument)
-
-                    waitingApply.remove(appliedSpan.id)?.handle(Future.succeededFuture(devInstrument))
-
-                    vertx.eventBus().publish(
-                        SourceMarkerServices.Provide.LIVE_INSTRUMENT_SUBSCRIBER,
-                        JsonObject.mapFrom(
-                            LiveInstrumentEvent(
-                                LiveInstrumentEventType.SPAN_APPLIED,
-                                Json.encode(appliedSpan)
-                            )
-                        )
-                    )
-                    if (log.isTraceEnabled) log.trace("Published live span applied")
-                    return@forEach
-                }
-            }
+            handleSpanApplied(it)
         }
         vertx.eventBus().localConsumer<JsonObject>("local." + PlatformAddress.LIVE_SPAN_REMOVED.address) {
-            if (log.isTraceEnabled) log.trace("Got live span removed: {}", it.body())
-            val spanCommand = it.body().getString("command")
-            val spanData = if (spanCommand != null) {
-                val command = Json.decodeValue(spanCommand, LiveInstrumentCommand::class.java)
-                JsonObject(command.context.liveInstruments[0]) //todo: check for multiple
-            } else {
-                JsonObject(it.body().getString("span"))
-            }
+            handleSpanRemoved(it)
+        }
+    }
 
-            val instrumentRemoval = liveInstruments.find { find -> find.instrument.id == spanData.getString("id") }
-            if (instrumentRemoval != null) {
-                //publish remove command to all probes & markers
-                removeLiveSpan(
-                    instrumentRemoval.selfId,
-                    instrumentRemoval.accessToken,
-                    Instant.fromEpochMilliseconds(it.body().getLong("occurredAt")),
-                    instrumentRemoval.instrument as LiveSpan,
-                    it.body().getString("cause")
+    private fun handleSpanRemoved(it: Message<JsonObject>) {
+        if (log.isTraceEnabled) log.trace("Got live span removed: {}", it.body())
+        val spanCommand = it.body().getString("command")
+        val spanData = if (spanCommand != null) {
+            val command = Json.decodeValue(spanCommand, LiveInstrumentCommand::class.java)
+            JsonObject(command.context.liveInstruments[0]) //todo: check for multiple
+        } else {
+            JsonObject(it.body().getString("span"))
+        }
+
+        val instrumentRemoval = liveInstruments.find { find -> find.instrument.id == spanData.getString("id") }
+        if (instrumentRemoval != null) {
+            //publish remove command to all probes & markers
+            removeLiveSpan(
+                instrumentRemoval.selfId,
+                instrumentRemoval.accessToken,
+                Instant.fromEpochMilliseconds(it.body().getLong("occurredAt")),
+                instrumentRemoval.instrument as LiveSpan,
+                it.body().getString("cause")
+            )
+        }
+    }
+
+    private fun handleSpanApplied(it: Message<JsonObject>) {
+        val liveSpan = Json.decodeValue(it.body().toString(), LiveSpan::class.java)
+        liveInstruments.forEach {
+            if (it.instrument.id == liveSpan.id) {
+                log.info("Live span applied. Id: {}", it.instrument.id)
+                val appliedSpan = (it.instrument as LiveSpan).copy(
+                    applied = true,
+                    pending = false
                 )
+                (appliedSpan.meta as MutableMap<String, Any>)["applied_at"] = System.currentTimeMillis().toString()
+
+                val devInstrument = DeveloperInstrument(it.selfId, it.accessToken, appliedSpan)
+                liveInstruments.remove(it)
+                liveInstruments.add(devInstrument)
+
+                waitingApply.remove(appliedSpan.id)?.handle(Future.succeededFuture(devInstrument))
+
+                vertx.eventBus().publish(
+                    SourceMarkerServices.Provide.LIVE_INSTRUMENT_SUBSCRIBER,
+                    JsonObject.mapFrom(
+                        LiveInstrumentEvent(
+                            LiveInstrumentEventType.SPAN_APPLIED,
+                            Json.encode(appliedSpan)
+                        )
+                    )
+                )
+                if (log.isTraceEnabled) log.trace("Published live span applied")
+                return@forEach
             }
         }
     }
@@ -1361,33 +1402,12 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
     }
 
     //todo: impl probe clear command
-    fun clearLiveBreakpoints(selfId: String, accessToken: String?, handler: Handler<AsyncResult<Boolean>>) {
-        val devBreakpoints = liveInstruments.filter { it.selfId == selfId && it.instrument is LiveBreakpoint }
-        devBreakpoints.forEach {
-            removeLiveInstrument(selfId, accessToken, it.instrument.id!!)
-        }
-        handler.handle(Future.succeededFuture(true))
-    }
-
-    fun clearLiveLogs(selfId: String, accessToken: String?, handler: Handler<AsyncResult<Boolean>>) {
-        val devLogs = liveInstruments.filter { it.selfId == selfId && it.instrument is LiveLog }
-        devLogs.forEach {
-            removeLiveInstrument(selfId, accessToken, it.instrument.id!!)
-        }
-        handler.handle(Future.succeededFuture(true))
-    }
-
-    fun clearLiveMeters(selfId: String, accessToken: String?, handler: Handler<AsyncResult<Boolean>>) {
-        val devMeters = liveInstruments.filter { it.selfId == selfId && it.instrument is LiveMeter }
-        devMeters.forEach {
-            removeLiveInstrument(selfId, accessToken, it.instrument.id!!)
-        }
-        handler.handle(Future.succeededFuture(true))
-    }
-
-    fun clearLiveSpans(selfId: String, accessToken: String?, handler: Handler<AsyncResult<Boolean>>) {
-        val devSpans = liveInstruments.filter { it.selfId == selfId && it.instrument is LiveSpan }
-        devSpans.forEach {
+    fun clearLiveInstruments(
+        selfId: String, accessToken: String?, type: LiveInstrumentType,
+        handler: Handler<AsyncResult<Boolean>>
+    ) {
+        val devInstruments = liveInstruments.filter { it.selfId == selfId && it.instrument.type == type }
+        devInstruments.forEach {
             removeLiveInstrument(selfId, accessToken, it.instrument.id!!)
         }
         handler.handle(Future.succeededFuture(true))
