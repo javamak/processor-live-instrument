@@ -322,14 +322,17 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
                 val breakpointsResult = removeBreakpoints(devAuth, location)
                 val logsResult = removeLogs(devAuth, location)
                 val metersResult = removeMeters(devAuth, location)
+                val spansResult = removeSpans(devAuth, location)
 
                 when {
                     breakpointsResult.failed() -> handler.handle(Future.failedFuture(breakpointsResult.cause()))
                     logsResult.failed() -> handler.handle(Future.failedFuture(logsResult.cause()))
                     metersResult.failed() -> handler.handle(Future.failedFuture(metersResult.cause()))
+                    spansResult.failed() -> handler.handle(Future.failedFuture(spansResult.cause()))
                     else -> handler.handle(
                         Future.succeededFuture(
-                            breakpointsResult.result() + logsResult.result() + metersResult.result()
+                            breakpointsResult.result() + logsResult.result()
+                                    + metersResult.result() + spansResult.result()
                         )
                     )
                 }
@@ -963,6 +966,32 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
             )
         }
         return Future.succeededFuture(result.map { it.instrument as LiveMeter })
+    }
+
+    fun removeSpans(devAuth: DeveloperAuth, location: LiveSourceLocation): AsyncResult<List<LiveInstrument>> {
+        log.debug("Removing live span(s): $location")
+        val debuggerCommand = LiveInstrumentCommand(
+            LiveInstrumentCommand.CommandType.REMOVE_LIVE_INSTRUMENT,
+            LiveInstrumentContext()
+        )
+        debuggerCommand.context.addLocation(location)
+
+        val result = liveInstruments.filter { it.instrument.location == location && it.instrument is LiveSpan }
+        liveInstruments.removeAll(result.toSet())
+        if (result.isEmpty()) {
+            log.info("Could not find live span(s) at: $location")
+        } else {
+            dispatchCommand(devAuth.accessToken, LIVE_SPAN_REMOTE, location, debuggerCommand)
+            log.debug("Removed live span(s) at: $location")
+
+            vertx.eventBus().publish(
+                SourceMarkerServices.Provide.LIVE_INSTRUMENT_SUBSCRIBER,
+                JsonObject.mapFrom(
+                    LiveInstrumentEvent(LiveInstrumentEventType.SPAN_REMOVED, Json.encode(result))
+                )
+            )
+        }
+        return Future.succeededFuture(result.map { it.instrument as LiveSpan })
     }
 
     //todo: impl probe clear command
