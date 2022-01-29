@@ -486,7 +486,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
         val instrumentRemoval = liveInstruments.find { find -> find.instrument.id == bpData.getString("id") }
         if (instrumentRemoval != null) {
             //publish remove command to all probes & markers
-            removeLiveBreakpoint(
+            removeLiveInstrument(
                 instrumentRemoval.developerAuth,
                 Instant.fromEpochMilliseconds(it.body().getLong("occurredAt")),
                 instrumentRemoval.instrument as LiveBreakpoint,
@@ -520,7 +520,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
         val instrumentRemoval = liveInstruments.find { find -> find.instrument.id == logData.getString("id") }
         if (instrumentRemoval != null) {
             //publish remove command to all probes & markers
-            removeLiveLog(
+            removeLiveInstrument(
                 instrumentRemoval.developerAuth,
                 Instant.fromEpochMilliseconds(it.body().getLong("occurredAt")),
                 instrumentRemoval.instrument as LiveLog,
@@ -570,7 +570,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
         val instrumentRemoval = liveInstruments.find { find -> find.instrument.id == meterData.getString("id") }
         if (instrumentRemoval != null) {
             //publish remove command to all probes & markers
-            removeLiveMeter(
+            removeLiveInstrument(
                 instrumentRemoval.developerAuth,
                 Instant.fromEpochMilliseconds(it.body().getLong("occurredAt")),
                 instrumentRemoval.instrument as LiveMeter,
@@ -601,7 +601,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
         val instrumentRemoval = liveInstruments.find { find -> find.instrument.id == spanData.getString("id") }
         if (instrumentRemoval != null) {
             //publish remove command to all probes & markers
-            removeLiveSpan(
+            removeLiveInstrument(
                 instrumentRemoval.developerAuth,
                 Instant.fromEpochMilliseconds(it.body().getLong("occurredAt")),
                 instrumentRemoval.instrument as LiveSpan,
@@ -912,22 +912,27 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
         return Future.succeededFuture(liveLog)
     }
 
-    private fun removeLiveBreakpoint(
-        devAuth: DeveloperAuth, occurredAt: Instant, breakpoint: LiveBreakpoint, cause: String?
+    private fun removeLiveInstrument(
+        devAuth: DeveloperAuth, occurredAt: Instant, liveInstrument: LiveInstrument, cause: String?
     ) {
-        log.debug("Removing live breakpoint: ${breakpoint.id}")
-        val devBreakpoint = DeveloperInstrument(devAuth, breakpoint)
-        liveInstruments.remove(devBreakpoint)
+        log.debug("Removing live instrument: ${liveInstrument.id}")
+        val devInstrument = DeveloperInstrument(devAuth, liveInstrument)
+        liveInstruments.remove(devInstrument)
 
+        val probeAddress = when (liveInstrument.type) {
+            LiveInstrumentType.BREAKPOINT -> LIVE_BREAKPOINT_REMOTE
+            LiveInstrumentType.LOG -> LIVE_LOG_REMOTE
+            LiveInstrumentType.METER -> LIVE_METER_REMOTE
+            LiveInstrumentType.SPAN -> LIVE_SPAN_REMOTE
+        }
         val debuggerCommand = LiveInstrumentCommand(
-            LiveInstrumentCommand.CommandType.REMOVE_LIVE_INSTRUMENT,
-            LiveInstrumentContext()
+            LiveInstrumentCommand.CommandType.REMOVE_LIVE_INSTRUMENT, LiveInstrumentContext()
         )
-        debuggerCommand.context.addLiveInstrument(breakpoint)
-        dispatchCommand(devAuth.accessToken, LIVE_BREAKPOINT_REMOTE, breakpoint.location, debuggerCommand)
+        debuggerCommand.context.addLiveInstrument(liveInstrument)
+        dispatchCommand(devAuth.accessToken, probeAddress, liveInstrument.location, debuggerCommand)
 
         val jvmCause = if (cause == null) null else LiveStackTrace.fromString(cause)
-        val waitingHandler = waitingApply.remove(breakpoint.id)
+        val waitingHandler = waitingApply.remove(liveInstrument.id)
         if (waitingHandler != null) {
             if (cause?.startsWith("EventBusException") == true) {
                 val ebException = fromEventBusException(cause)
@@ -936,151 +941,36 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
                 TODO("$cause")
             }
         } else {
-            vertx.eventBus().publish(
-                SourceMarkerServices.Provide.LIVE_INSTRUMENT_SUBSCRIBER,
-                JsonObject.mapFrom(
-                    LiveInstrumentEvent(
-                        LiveInstrumentEventType.BREAKPOINT_REMOVED,
-                        //todo: could send whole breakpoint instead of just id
-                        Json.encode(LiveBreakpointRemoved(breakpoint.id!!, occurredAt, jvmCause))
-                    )
-                )
-            )
-        }
-
-        if (jvmCause != null) {
-            log.warn("Publish live breakpoint removed. Cause: {}", jvmCause.message)
-        } else {
-            log.info("Published live breakpoint removed")
-        }
-    }
-
-    private fun removeLiveLog(
-        devAuth: DeveloperAuth, occurredAt: Instant, liveLog: LiveLog, cause: String?
-    ) {
-        log.debug("Removing live log: ${liveLog.id}")
-        val devLog = DeveloperInstrument(devAuth, liveLog)
-        liveInstruments.remove(devLog)
-
-        val debuggerCommand = LiveInstrumentCommand(
-            LiveInstrumentCommand.CommandType.REMOVE_LIVE_INSTRUMENT,
-            LiveInstrumentContext()
-        )
-        debuggerCommand.context.addLiveInstrument(liveLog)
-        dispatchCommand(devAuth.accessToken, LIVE_LOG_REMOTE, liveLog.location, debuggerCommand)
-
-        val jvmCause = if (cause == null) null else LiveStackTrace.fromString(cause)
-        val waitingHandler = waitingApply.remove(liveLog.id)
-        if (waitingHandler != null) {
-            if (cause?.startsWith("EventBusException") == true) {
-                val ebException = fromEventBusException(cause)
-                waitingHandler.handle(Future.failedFuture(ebException))
-            } else {
-                TODO("$cause")
+            val eventType = when (liveInstrument.type) {
+                LiveInstrumentType.BREAKPOINT -> LiveInstrumentEventType.BREAKPOINT_REMOVED
+                LiveInstrumentType.LOG -> LiveInstrumentEventType.LOG_REMOVED
+                LiveInstrumentType.METER -> LiveInstrumentEventType.METER_REMOVED
+                LiveInstrumentType.SPAN -> LiveInstrumentEventType.SPAN_REMOVED
             }
-        } else {
-            vertx.eventBus().publish(
-                SourceMarkerServices.Provide.LIVE_INSTRUMENT_SUBSCRIBER,
-                JsonObject.mapFrom(
-                    LiveInstrumentEvent(
-                        LiveInstrumentEventType.LOG_REMOVED,
-                        //todo: could send whole log instead of just id
-                        Json.encode(LiveLogRemoved(liveLog.id!!, occurredAt, jvmCause, liveLog))
-                    )
-                )
-            )
-        }
-
-        if (jvmCause != null) {
-            log.warn("Publish live log removed. Cause: {} - {}", jvmCause.exceptionType, jvmCause.message)
-        } else {
-            log.info("Published live log removed")
-        }
-    }
-
-    private fun removeLiveMeter(
-        devAuth: DeveloperAuth, occurredAt: Instant, meter: LiveMeter, cause: String?
-    ) {
-        log.debug("Removing live meter: ${meter.id}")
-        val devMeter = DeveloperInstrument(devAuth, meter)
-        liveInstruments.remove(devMeter)
-
-        val debuggerCommand = LiveInstrumentCommand(
-            LiveInstrumentCommand.CommandType.REMOVE_LIVE_INSTRUMENT,
-            LiveInstrumentContext()
-        )
-        debuggerCommand.context.addLiveInstrument(meter)
-        dispatchCommand(devAuth.accessToken, LIVE_METER_REMOTE, meter.location, debuggerCommand)
-
-        val jvmCause = if (cause == null) null else LiveStackTrace.fromString(cause)
-        val waitingHandler = waitingApply.remove(meter.id)
-        if (waitingHandler != null) {
-            if (cause?.startsWith("EventBusException") == true) {
-                val ebException = fromEventBusException(cause)
-                waitingHandler.handle(Future.failedFuture(ebException))
-            } else {
-                TODO("$cause")
+            val eventData = when (liveInstrument.type) {
+                LiveInstrumentType.BREAKPOINT -> {
+                    Json.encode(LiveBreakpointRemoved(liveInstrument.id!!, occurredAt, jvmCause))
+                }
+                LiveInstrumentType.LOG -> {
+                    Json.encode(LiveLogRemoved(liveInstrument.id!!, occurredAt, jvmCause, liveInstrument as LiveLog))
+                }
+                LiveInstrumentType.METER -> {
+                    Json.encode(LiveMeterRemoved(liveInstrument.id!!, occurredAt, jvmCause))
+                }
+                LiveInstrumentType.SPAN -> {
+                    Json.encode(LiveSpanRemoved(liveInstrument.id!!, occurredAt, jvmCause))
+                }
             }
-        } else {
             vertx.eventBus().publish(
                 SourceMarkerServices.Provide.LIVE_INSTRUMENT_SUBSCRIBER,
-                JsonObject.mapFrom(
-                    LiveInstrumentEvent(
-                        LiveInstrumentEventType.METER_REMOVED,
-                        //todo: could send whole meter instead of just id
-                        Json.encode(LiveMeterRemoved(meter.id!!, occurredAt, jvmCause))
-                    )
-                )
+                JsonObject.mapFrom(LiveInstrumentEvent(eventType, eventData))
             )
         }
 
         if (jvmCause != null) {
-            log.warn("Publish live meter removed. Cause: {}", jvmCause.message)
+            log.warn("Publish live instrument removed. Cause: {} - {}", jvmCause.exceptionType, jvmCause.message)
         } else {
-            log.info("Published live meter removed")
-        }
-    }
-
-    private fun removeLiveSpan(
-        devAuth: DeveloperAuth, occurredAt: Instant, span: LiveSpan, cause: String?
-    ) {
-        log.debug("Removing live span: ${span.id}")
-        val devMeter = DeveloperInstrument(devAuth, span)
-        liveInstruments.remove(devMeter)
-
-        val debuggerCommand = LiveInstrumentCommand(
-            LiveInstrumentCommand.CommandType.REMOVE_LIVE_INSTRUMENT,
-            LiveInstrumentContext()
-        )
-        debuggerCommand.context.addLiveInstrument(span)
-        dispatchCommand(devAuth.accessToken, LIVE_SPAN_REMOTE, span.location, debuggerCommand)
-
-        val jvmCause = if (cause == null) null else LiveStackTrace.fromString(cause)
-        val waitingHandler = waitingApply.remove(span.id)
-        if (waitingHandler != null) {
-            if (cause?.startsWith("EventBusException") == true) {
-                val ebException = fromEventBusException(cause)
-                waitingHandler.handle(Future.failedFuture(ebException))
-            } else {
-                TODO("$cause")
-            }
-        } else {
-            vertx.eventBus().publish(
-                SourceMarkerServices.Provide.LIVE_INSTRUMENT_SUBSCRIBER,
-                JsonObject.mapFrom(
-                    LiveInstrumentEvent(
-                        LiveInstrumentEventType.SPAN_REMOVED,
-                        //todo: could send whole span instead of just id
-                        Json.encode(LiveSpanRemoved(span.id!!, occurredAt, jvmCause))
-                    )
-                )
-            )
-        }
-
-        if (jvmCause != null) {
-            log.warn("Publish live span removed. Cause: {}", jvmCause.message)
-        } else {
-            log.info("Published live span removed")
+            log.info("Published live instrument removed")
         }
     }
 
@@ -1105,10 +995,10 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
 
         //publish remove command to all probes
         when (instrumentRemoval.instrument) {
-            is LiveBreakpoint -> removeLiveBreakpoint(devAuth, Clock.System.now(), instrumentRemoval.instrument, null)
-            is LiveLog -> removeLiveLog(devAuth, Clock.System.now(), instrumentRemoval.instrument, null)
-            is LiveMeter -> removeLiveMeter(devAuth, Clock.System.now(), instrumentRemoval.instrument, null)
-            is LiveSpan -> removeLiveSpan(devAuth, Clock.System.now(), instrumentRemoval.instrument, null)
+            is LiveBreakpoint -> removeLiveInstrument(devAuth, Clock.System.now(), instrumentRemoval.instrument, null)
+            is LiveLog -> removeLiveInstrument(devAuth, Clock.System.now(), instrumentRemoval.instrument, null)
+            is LiveMeter -> removeLiveInstrument(devAuth, Clock.System.now(), instrumentRemoval.instrument, null)
+            is LiveSpan -> removeLiveInstrument(devAuth, Clock.System.now(), instrumentRemoval.instrument, null)
             else -> TODO()
         }
         return Future.succeededFuture(instrumentRemoval.instrument)
