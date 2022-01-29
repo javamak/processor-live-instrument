@@ -45,10 +45,8 @@ import spp.protocol.artifact.exception.LiveStackTrace
 import spp.protocol.error.MissingRemoteException
 import spp.protocol.instrument.*
 import spp.protocol.instrument.breakpoint.LiveBreakpoint
-import spp.protocol.instrument.breakpoint.event.LiveBreakpointHit
 import spp.protocol.instrument.breakpoint.event.LiveBreakpointRemoved
 import spp.protocol.instrument.log.LiveLog
-import spp.protocol.instrument.log.event.LiveLogHit
 import spp.protocol.instrument.log.event.LiveLogRemoved
 import spp.protocol.instrument.meter.LiveMeter
 import spp.protocol.instrument.meter.MeterType
@@ -61,7 +59,6 @@ import spp.protocol.probe.ProbeAddress
 import spp.protocol.probe.ProbeAddress.*
 import spp.protocol.probe.command.LiveInstrumentCommand
 import spp.protocol.probe.command.LiveInstrumentContext
-import spp.protocol.processor.ProcessorAddress
 import spp.protocol.service.error.LiveInstrumentException
 import spp.protocol.service.live.LiveInstrumentService
 import java.time.ZoneOffset
@@ -452,28 +449,6 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
         vertx.eventBus().localConsumer<JsonObject>("local." + PlatformAddress.LIVE_BREAKPOINT_REMOVED.address) {
             handleBreakpointRemoved(it)
         }
-        vertx.eventBus().consumer<JsonObject>(ProcessorAddress.BREAKPOINT_HIT.address) {
-            handleBreakpointHit(it)
-        }
-    }
-
-    private fun handleBreakpointHit(it: Message<JsonObject>) {
-        if (log.isTraceEnabled) log.trace("Live breakpoint hit: {}", it.body())
-        val bpHit = Json.decodeValue(it.body().toString(), LiveBreakpointHit::class.java)
-        val instrument = getLiveInstrumentById(bpHit.breakpointId)
-        if (instrument != null) {
-            val instrumentMeta = instrument.meta as MutableMap<String, Any>
-            if ((instrumentMeta["hit_count"] as AtomicInteger?)?.incrementAndGet() == 1) {
-                instrumentMeta["first_hit_at"] = System.currentTimeMillis().toString()
-            }
-            instrumentMeta["last_hit_at"] = System.currentTimeMillis().toString()
-        }
-
-        vertx.eventBus().publish(
-            SourceMarkerServices.Provide.LIVE_INSTRUMENT_SUBSCRIBER,
-            JsonObject.mapFrom(LiveInstrumentEvent(LiveInstrumentEventType.BREAKPOINT_HIT, Json.encode(bpHit)))
-        )
-        if (log.isTraceEnabled) log.trace("Published live breakpoint hit")
     }
 
     private fun handleBreakpointRemoved(it: Message<JsonObject>) {
@@ -499,9 +474,6 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
     }
 
     private fun listenForLiveLogs() {
-        vertx.eventBus().consumer<JsonObject>(ProcessorAddress.LOG_HIT.address) {
-            handleLogHit(it)
-        }
         vertx.eventBus().localConsumer<JsonObject>("local." + PlatformAddress.LIVE_LOG_APPLIED.address) {
             handleLiveInstrumentApplied(LiveLog::class.java, it)
         }
@@ -530,25 +502,6 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
                 it.body().getString("cause")
             )
         }
-    }
-
-    private fun handleLogHit(it: Message<JsonObject>) {
-        if (log.isTraceEnabled) log.trace("Live log hit: {}", it.body())
-        val logHit = Json.decodeValue(it.body().toString(), LiveLogHit::class.java)
-        val instrument = getLiveInstrumentById(logHit.logId)
-        if (instrument != null) {
-            val instrumentMeta = instrument.meta as MutableMap<String, Any>
-            if ((instrumentMeta["hit_count"] as AtomicInteger?)?.incrementAndGet() == 1) {
-                instrumentMeta["first_hit_at"] = System.currentTimeMillis().toString()
-            }
-            instrumentMeta["last_hit_at"] = System.currentTimeMillis().toString()
-        }
-
-        vertx.eventBus().publish(
-            SourceMarkerServices.Provide.LIVE_INSTRUMENT_SUBSCRIBER,
-            JsonObject.mapFrom(LiveInstrumentEvent(LiveInstrumentEventType.LOG_HIT, it.body().toString()))
-        )
-        if (log.isTraceEnabled) log.trace("Published live log hit")
     }
 
     private fun listenForLiveMeters() {

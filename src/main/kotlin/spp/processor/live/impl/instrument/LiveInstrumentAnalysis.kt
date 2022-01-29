@@ -3,6 +3,7 @@ package spp.processor.live.impl.instrument
 import com.google.common.cache.CacheBuilder
 import com.google.common.cache.CacheLoader
 import com.google.protobuf.Message
+import io.vertx.core.json.Json
 import io.vertx.core.json.JsonArray
 import io.vertx.core.json.JsonObject
 import io.vertx.kotlin.core.json.get
@@ -16,17 +17,21 @@ import org.apache.skywalking.oap.server.analyzer.provider.AnalyzerModuleConfig
 import org.apache.skywalking.oap.server.analyzer.provider.trace.parser.listener.*
 import org.apache.skywalking.oap.server.library.module.ModuleManager
 import org.slf4j.LoggerFactory
-import spp.processor.InstrumentProcessor
-import spp.processor.common.FeedbackProcessor
+import spp.processor.InstrumentProcessor.liveInstrumentProcessor
+import spp.processor.common.FeedbackProcessor.Companion.vertx
+import spp.protocol.SourceMarkerServices
 import spp.protocol.artifact.exception.LiveStackTrace
 import spp.protocol.artifact.exception.LiveStackTraceElement
 import spp.protocol.artifact.exception.sourceAsLineNumber
+import spp.protocol.instrument.LiveInstrumentEvent
+import spp.protocol.instrument.LiveInstrumentEventType
 import spp.protocol.instrument.LiveVariable
 import spp.protocol.instrument.LiveVariableScope
 import spp.protocol.instrument.breakpoint.event.LiveBreakpointHit
+import spp.protocol.instrument.log.event.LiveLogHit
 import spp.protocol.processor.ProcessorAddress
-import spp.protocol.processor.ProcessorAddress.BREAKPOINT_HIT
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 
 class LiveInstrumentAnalysis : AnalysisListenerFactory, LogAnalysisListenerFactory {
 
@@ -134,7 +139,7 @@ class LiveInstrumentAnalysis : AnalysisListenerFactory, LogAnalysisListenerFacto
 
     init {
         //todo: map of rate limit per log id
-        FeedbackProcessor.vertx.eventBus().consumer<Int>(ProcessorAddress.SET_LOG_PUBLISH_RATE_LIMIT.address) {
+        vertx.eventBus().consumer<Int>(ProcessorAddress.SET_LOG_PUBLISH_RATE_LIMIT.address) {
             logPublishRateLimit = it.body()
         }
     }
@@ -186,9 +191,28 @@ class LiveInstrumentAnalysis : AnalysisListenerFactory, LogAnalysisListenerFacto
                         )
                         .put("total", -1)
                 )
-            FeedbackProcessor.vertx.eventBus().publish(ProcessorAddress.LOG_HIT.address, logHit)
+            handleLogHit(logHit)
             logPublishCache.put(logId!!, System.currentTimeMillis())
             return this
+        }
+
+        private fun handleLogHit(jsonObject: JsonObject) {
+            if (log.isTraceEnabled) log.trace("Live log hit: {}", jsonObject)
+            val logHit = Json.decodeValue(jsonObject.toString(), LiveLogHit::class.java)
+            val instrument = liveInstrumentProcessor.getLiveInstrumentById(logHit.logId)
+            if (instrument != null) {
+                val instrumentMeta = instrument.meta as MutableMap<String, Any>
+                if ((instrumentMeta["hit_count"] as AtomicInteger?)?.incrementAndGet() == 1) {
+                    instrumentMeta["first_hit_at"] = System.currentTimeMillis().toString()
+                }
+                instrumentMeta["last_hit_at"] = System.currentTimeMillis().toString()
+            }
+
+            vertx.eventBus().publish(
+                SourceMarkerServices.Provide.LIVE_INSTRUMENT_SUBSCRIBER,
+                JsonObject.mapFrom(LiveInstrumentEvent(LiveInstrumentEventType.LOG_HIT, jsonObject.toString()))
+            )
+            if (log.isTraceEnabled) log.trace("Published live log hit")
         }
     }
 
@@ -283,12 +307,28 @@ class LiveInstrumentAnalysis : AnalysisListenerFactory, LogAnalysisListenerFacto
                     "location_source" to locationSources[it]!!,
                     "location_line" to locationLines[it]!!
                 )
-                FeedbackProcessor.vertx.eventBus().publish(
-                    BREAKPOINT_HIT.address,
-                    //todo: don't need to map twice
-                    JsonObject.mapFrom(transformRawBreakpointHit(JsonObject.mapFrom(bpHitObj)))
-                )
+                //todo: don't need to map twice
+                handleBreakpointHit(JsonObject.mapFrom(transformRawBreakpointHit(JsonObject.mapFrom(bpHitObj))))
             }
+        }
+
+        private fun handleBreakpointHit(jsonObject: JsonObject) {
+            if (log.isTraceEnabled) log.trace("Live breakpoint hit: {}", jsonObject)
+            val bpHit = Json.decodeValue(jsonObject.toString(), LiveBreakpointHit::class.java)
+            val instrument = liveInstrumentProcessor.getLiveInstrumentById(bpHit.breakpointId)
+            if (instrument != null) {
+                val instrumentMeta = instrument.meta as MutableMap<String, Any>
+                if ((instrumentMeta["hit_count"] as AtomicInteger?)?.incrementAndGet() == 1) {
+                    instrumentMeta["first_hit_at"] = System.currentTimeMillis().toString()
+                }
+                instrumentMeta["last_hit_at"] = System.currentTimeMillis().toString()
+            }
+
+            vertx.eventBus().publish(
+                SourceMarkerServices.Provide.LIVE_INSTRUMENT_SUBSCRIBER,
+                JsonObject.mapFrom(LiveInstrumentEvent(LiveInstrumentEventType.BREAKPOINT_HIT, Json.encode(bpHit)))
+            )
+            if (log.isTraceEnabled) log.trace("Published live breakpoint hit")
         }
     }
 
