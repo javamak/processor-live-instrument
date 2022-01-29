@@ -42,6 +42,7 @@ object InstrumentProcessor : FeedbackProcessor() {
 
     private val log = LoggerFactory.getLogger(InstrumentProcessor::class.java)
     private var liveInstrumentRecord: Record? = null
+    val liveInstrumentProcessor = LiveInstrumentProcessorImpl()
 
     override fun bootProcessor(moduleManager: ModuleManager) {
         module = moduleManager
@@ -51,8 +52,6 @@ object InstrumentProcessor : FeedbackProcessor() {
 
             connectToPlatform()
             republishEvents(LIVE_INSTRUMENT_SUBSCRIBER)
-            republishEvents(ProcessorAddress.BREAKPOINT_HIT.address)
-            republishEvents(ProcessorAddress.LOG_HIT.address)
         }
     }
 
@@ -142,7 +141,6 @@ object InstrumentProcessor : FeedbackProcessor() {
         module.addDeserializer(Instant::class.java, KSerializers.KotlinInstantDeserializer())
         DatabindCodec.mapper().registerModule(module)
 
-        val liveInstrumentProcessor = LiveInstrumentProcessorImpl()
         vertx.deployVerticle(liveInstrumentProcessor).await()
 
         ServiceBinder(vertx).setIncludeDebugInfo(true)

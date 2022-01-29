@@ -3,7 +3,7 @@ package spp.processor.live.impl.instrument
 import com.google.common.cache.CacheBuilder
 import com.google.common.cache.CacheLoader
 import com.google.protobuf.Message
-import io.vertx.core.json.JsonArray
+import io.vertx.core.json.Json
 import io.vertx.core.json.JsonObject
 import io.vertx.kotlin.core.json.get
 import kotlinx.datetime.Instant
@@ -16,17 +16,24 @@ import org.apache.skywalking.oap.server.analyzer.provider.AnalyzerModuleConfig
 import org.apache.skywalking.oap.server.analyzer.provider.trace.parser.listener.*
 import org.apache.skywalking.oap.server.library.module.ModuleManager
 import org.slf4j.LoggerFactory
-import spp.processor.InstrumentProcessor
-import spp.processor.common.FeedbackProcessor
+import spp.processor.InstrumentProcessor.liveInstrumentProcessor
+import spp.processor.common.FeedbackProcessor.Companion.vertx
+import spp.protocol.SourceMarkerServices
 import spp.protocol.artifact.exception.LiveStackTrace
 import spp.protocol.artifact.exception.LiveStackTraceElement
 import spp.protocol.artifact.exception.sourceAsLineNumber
+import spp.protocol.artifact.log.Log
+import spp.protocol.artifact.log.LogOrderType
+import spp.protocol.artifact.log.LogResult
+import spp.protocol.instrument.LiveInstrumentEvent
+import spp.protocol.instrument.LiveInstrumentEventType
 import spp.protocol.instrument.LiveVariable
 import spp.protocol.instrument.LiveVariableScope
 import spp.protocol.instrument.breakpoint.event.LiveBreakpointHit
+import spp.protocol.instrument.log.event.LiveLogHit
 import spp.protocol.processor.ProcessorAddress
-import spp.protocol.processor.ProcessorAddress.BREAKPOINT_HIT
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 
 class LiveInstrumentAnalysis : AnalysisListenerFactory, LogAnalysisListenerFactory {
 
@@ -134,7 +141,7 @@ class LiveInstrumentAnalysis : AnalysisListenerFactory, LogAnalysisListenerFacto
 
     init {
         //todo: map of rate limit per log id
-        FeedbackProcessor.vertx.eventBus().consumer<Int>(ProcessorAddress.SET_LOG_PUBLISH_RATE_LIMIT.address) {
+        vertx.eventBus().consumer<Int>(ProcessorAddress.SET_LOG_PUBLISH_RATE_LIMIT.address) {
             logPublishRateLimit = it.body()
         }
     }
@@ -147,7 +154,7 @@ class LiveInstrumentAnalysis : AnalysisListenerFactory, LogAnalysisListenerFacto
             var logId: String? = null
             var logger: String? = null
             var thread: String? = null
-            val arguments = JsonArray()
+            val arguments = mutableListOf<String>()
             logData.tags.dataList.forEach {
                 when {
                     "log_id" == it.key -> logId = it.value
@@ -163,32 +170,49 @@ class LiveInstrumentAnalysis : AnalysisListenerFactory, LogAnalysisListenerFacto
                 return this
             }
 
-            val logHit = JsonObject()
-                .put("logId", logId)
-                .put("occurredAt", logData.timestamp)
-                .put("serviceInstance", logData.serviceInstance)
-                .put("service", logData.service)
-                .put(
-                    "logResult",
-                    JsonObject()
-                        .put("orderType", "NEWEST_LOGS")
-                        .put("timestamp", logData.timestamp)
-                        .put(
-                            "logs", JsonArray().add(
-                                JsonObject()
-                                    .put("timestamp", logData.timestamp)
-                                    .put("content", logData.body.text.text)
-                                    .put("level", "Live")
-                                    .put("logger", logger)
-                                    .put("thread", thread)
-                                    .put("arguments", arguments)
+            handleLogHit(
+                LiveLogHit(
+                    logId!!,
+                    Instant.fromEpochMilliseconds(logData.timestamp),
+                    logData.serviceInstance,
+                    logData.service,
+                    LogResult(
+                        orderType = LogOrderType.NEWEST_LOGS,
+                        timestamp = Instant.fromEpochMilliseconds(logData.timestamp),
+                        logs = listOf(
+                            Log(
+                                timestamp = Instant.fromEpochMilliseconds(logData.timestamp),
+                                content = logData.body.text.text,
+                                level = "Live",
+                                logger = logger,
+                                thread = thread,
+                                arguments = arguments
                             )
-                        )
-                        .put("total", -1)
+                        ),
+                        total = -1
+                    )
                 )
-            FeedbackProcessor.vertx.eventBus().publish(ProcessorAddress.LOG_HIT.address, logHit)
+            )
             logPublishCache.put(logId!!, System.currentTimeMillis())
             return this
+        }
+
+        private fun handleLogHit(logHit: LiveLogHit) {
+            if (log.isTraceEnabled) log.trace("Live log hit: {}", logHit)
+            val instrument = liveInstrumentProcessor.getLiveInstrumentById(logHit.logId)
+            if (instrument != null) {
+                val instrumentMeta = instrument.meta as MutableMap<String, Any>
+                if ((instrumentMeta["hit_count"] as AtomicInteger?)?.incrementAndGet() == 1) {
+                    instrumentMeta["first_hit_at"] = System.currentTimeMillis().toString()
+                }
+                instrumentMeta["last_hit_at"] = System.currentTimeMillis().toString()
+            }
+
+            vertx.eventBus().publish(
+                SourceMarkerServices.Provide.LIVE_INSTRUMENT_SUBSCRIBER,
+                JsonObject.mapFrom(LiveInstrumentEvent(LiveInstrumentEventType.LOG_HIT, Json.encode(logHit)))
+            )
+            if (log.isTraceEnabled) log.trace("Published live log hit")
         }
     }
 
@@ -283,12 +307,26 @@ class LiveInstrumentAnalysis : AnalysisListenerFactory, LogAnalysisListenerFacto
                     "location_source" to locationSources[it]!!,
                     "location_line" to locationLines[it]!!
                 )
-                FeedbackProcessor.vertx.eventBus().publish(
-                    BREAKPOINT_HIT.address,
-                    //todo: don't need to map twice
-                    JsonObject.mapFrom(transformRawBreakpointHit(JsonObject.mapFrom(bpHitObj)))
-                )
+                handleBreakpointHit(transformRawBreakpointHit(JsonObject.mapFrom(bpHitObj)))
             }
+        }
+
+        private fun handleBreakpointHit(bpHit: LiveBreakpointHit) {
+            if (log.isTraceEnabled) log.trace("Live breakpoint hit: {}", bpHit)
+            val instrument = liveInstrumentProcessor.getLiveInstrumentById(bpHit.breakpointId)
+            if (instrument != null) {
+                val instrumentMeta = instrument.meta as MutableMap<String, Any>
+                if ((instrumentMeta["hit_count"] as AtomicInteger?)?.incrementAndGet() == 1) {
+                    instrumentMeta["first_hit_at"] = System.currentTimeMillis().toString()
+                }
+                instrumentMeta["last_hit_at"] = System.currentTimeMillis().toString()
+            }
+
+            vertx.eventBus().publish(
+                SourceMarkerServices.Provide.LIVE_INSTRUMENT_SUBSCRIBER,
+                JsonObject.mapFrom(LiveInstrumentEvent(LiveInstrumentEventType.BREAKPOINT_HIT, Json.encode(bpHit)))
+            )
+            if (log.isTraceEnabled) log.trace("Published live breakpoint hit")
         }
     }
 
