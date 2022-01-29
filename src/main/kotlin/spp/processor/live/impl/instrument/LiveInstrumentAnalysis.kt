@@ -191,14 +191,13 @@ class LiveInstrumentAnalysis : AnalysisListenerFactory, LogAnalysisListenerFacto
                         )
                         .put("total", -1)
                 )
-            handleLogHit(logHit)
+            handleLogHit(Json.decodeValue(logHit.toString(), LiveLogHit::class.java))
             logPublishCache.put(logId!!, System.currentTimeMillis())
             return this
         }
 
-        private fun handleLogHit(jsonObject: JsonObject) {
-            if (log.isTraceEnabled) log.trace("Live log hit: {}", jsonObject)
-            val logHit = Json.decodeValue(jsonObject.toString(), LiveLogHit::class.java)
+        private fun handleLogHit(logHit: LiveLogHit) {
+            if (log.isTraceEnabled) log.trace("Live log hit: {}", logHit)
             val instrument = liveInstrumentProcessor.getLiveInstrumentById(logHit.logId)
             if (instrument != null) {
                 val instrumentMeta = instrument.meta as MutableMap<String, Any>
@@ -210,7 +209,7 @@ class LiveInstrumentAnalysis : AnalysisListenerFactory, LogAnalysisListenerFacto
 
             vertx.eventBus().publish(
                 SourceMarkerServices.Provide.LIVE_INSTRUMENT_SUBSCRIBER,
-                JsonObject.mapFrom(LiveInstrumentEvent(LiveInstrumentEventType.LOG_HIT, jsonObject.toString()))
+                JsonObject.mapFrom(LiveInstrumentEvent(LiveInstrumentEventType.LOG_HIT, Json.encode(logHit)))
             )
             if (log.isTraceEnabled) log.trace("Published live log hit")
         }
@@ -307,14 +306,12 @@ class LiveInstrumentAnalysis : AnalysisListenerFactory, LogAnalysisListenerFacto
                     "location_source" to locationSources[it]!!,
                     "location_line" to locationLines[it]!!
                 )
-                //todo: don't need to map twice
-                handleBreakpointHit(JsonObject.mapFrom(transformRawBreakpointHit(JsonObject.mapFrom(bpHitObj))))
+                handleBreakpointHit(transformRawBreakpointHit(JsonObject.mapFrom(bpHitObj)))
             }
         }
 
-        private fun handleBreakpointHit(jsonObject: JsonObject) {
-            if (log.isTraceEnabled) log.trace("Live breakpoint hit: {}", jsonObject)
-            val bpHit = Json.decodeValue(jsonObject.toString(), LiveBreakpointHit::class.java)
+        private fun handleBreakpointHit(bpHit: LiveBreakpointHit) {
+            if (log.isTraceEnabled) log.trace("Live breakpoint hit: {}", bpHit)
             val instrument = liveInstrumentProcessor.getLiveInstrumentById(bpHit.breakpointId)
             if (instrument != null) {
                 val instrumentMeta = instrument.meta as MutableMap<String, Any>
