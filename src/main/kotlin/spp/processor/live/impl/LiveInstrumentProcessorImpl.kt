@@ -880,13 +880,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
         }
 
         //publish remove command to all probes
-        when (instrumentRemoval.instrument) {
-            is LiveBreakpoint -> removeLiveInstrument(devAuth, Clock.System.now(), instrumentRemoval.instrument, null)
-            is LiveLog -> removeLiveInstrument(devAuth, Clock.System.now(), instrumentRemoval.instrument, null)
-            is LiveMeter -> removeLiveInstrument(devAuth, Clock.System.now(), instrumentRemoval.instrument, null)
-            is LiveSpan -> removeLiveInstrument(devAuth, Clock.System.now(), instrumentRemoval.instrument, null)
-            else -> TODO()
-        }
+        removeLiveInstrument(devAuth, Clock.System.now(), instrumentRemoval.instrument, null)
         return Future.succeededFuture(instrumentRemoval.instrument)
     }
 
