@@ -27,9 +27,10 @@ data class DeveloperAuth(
         }
 
         fun from(handler: Handler<*>): DeveloperAuth {
-            val arg1 = Reflect.on(handler).get<MessageImpl<*, *>?>("arg\$1")
-            val arg2 = Reflect.on(handler).get<MessageImpl<*, *>?>("arg\$2")
-            return (arg1 ?: arg2).headers().let {
+            val arg1 = Reflect.on(handler).get<Any?>("arg\$1")
+            val arg2 = Reflect.on(handler).get<Any?>("arg\$2")
+            val messageImpl = (if (arg1 is MessageImpl<*, *>) arg1 else arg2) as MessageImpl<*, *>
+            return messageImpl.headers().let {
                 if (it.contains("auth-token")) {
                     DeveloperAuth(
                         JWT.parse(it.get("auth-token")).getJsonObject("payload").getString("developer_id"),
