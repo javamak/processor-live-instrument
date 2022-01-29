@@ -20,7 +20,6 @@ import spp.protocol.platform.PlatformAddress
 import spp.protocol.status.MarkerConnection
 import java.util.*
 
-//todo: move to dependencies
 open class ProcessorIntegrationTest {
 
     companion object {
@@ -89,7 +88,7 @@ open class ProcessorIntegrationTest {
                 }
 
                 FrameHelper.sendFrame(
-                    BridgeEventType.SEND.name.toLowerCase(), PlatformAddress.MARKER_CONNECTED.address,
+                    BridgeEventType.SEND.name.lowercase(), PlatformAddress.MARKER_CONNECTED.address,
                     replyAddress, JsonObject(), true, JsonObject.mapFrom(pc), tcpSocket
                 )
                 withTimeout(5000) {
@@ -101,30 +100,26 @@ open class ProcessorIntegrationTest {
                     val forwardMessage = resp.body()
                     val replyAddress = UUID.randomUUID().toString()
 
-                    if (log.isTraceEnabled) {
-                        log.trace("Started listening at {}", "local.$replyAddress")
-                    }
+                    if (log.isTraceEnabled) log.trace("Started listening at {}", "local.$replyAddress")
                     val tempConsumer = vertx.eventBus().localConsumer<Any>("local.$replyAddress")
                     tempConsumer.handler {
                         resp.reply(it.body())
                         tempConsumer.unregister()
 
-                        if (log.isTraceEnabled) {
-                            log.trace("Finished listening at {}", "local.$replyAddress")
-                        }
+                        if (log.isTraceEnabled) log.trace("Finished listening at {}", "local.$replyAddress")
                     }
 
                     val headers = JsonObject()
                     resp.headers().entries().forEach { headers.put(it.key, it.value) }
                     FrameHelper.sendFrame(
-                        BridgeEventType.SEND.name.toLowerCase(), forwardAddress,
+                        BridgeEventType.SEND.name.lowercase(), forwardAddress,
                         replyAddress, headers, true, forwardMessage, tcpSocket
                     )
                 }
 
                 //register listener
                 FrameHelper.sendFrame(
-                    BridgeEventType.REGISTER.name.toLowerCase(),
+                    BridgeEventType.REGISTER.name.lowercase(),
                     SourceMarkerServices.Provide.LIVE_INSTRUMENT_SUBSCRIBER, JsonObject(), tcpSocket
                 )
             }
