@@ -118,25 +118,25 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
             if (remote == LIVE_BREAKPOINT_REMOTE.address) {
                 log.debug("Live breakpoint remote registered. Sending active live breakpoints")
                 liveInstruments.filter { it.instrument is LiveBreakpoint }.forEach {
-                    addBreakpoint(it.developerAuth, it.instrument as LiveBreakpoint, false)
+                    addLiveInstrument(it.developerAuth, it.instrument as LiveBreakpoint, false)
                 }
             }
             if (remote == LIVE_LOG_REMOTE.address) {
                 log.debug("Live log remote registered. Sending active live logs")
                 liveInstruments.filter { it.instrument is LiveLog }.forEach {
-                    addLog(it.developerAuth, it.instrument as LiveLog, false)
+                    addLiveInstrument(it.developerAuth, it.instrument as LiveLog, false)
                 }
             }
             if (remote == LIVE_METER_REMOTE.address) {
                 log.debug("Live meter remote registered. Sending active live meters")
                 liveInstruments.filter { it.instrument is LiveMeter }.forEach {
-                    addMeter(it.developerAuth, it.instrument as LiveMeter, false)
+                    addLiveInstrument(it.developerAuth, it.instrument as LiveMeter, false)
                 }
             }
             if (remote == LIVE_SPAN_REMOTE.address) {
                 log.debug("Live span remote registered. Sending active live spans")
                 liveInstruments.filter { it.instrument is LiveSpan }.forEach {
-                    addSpan(it.developerAuth, it.instrument as LiveSpan, false)
+                    addLiveInstrument(it.developerAuth, it.instrument as LiveSpan, false)
                 }
             }
         }
@@ -186,9 +186,9 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
 
                         if (pendingBp.applyImmediately) {
                             addApplyImmediatelyHandler(pendingBp.id!!, handler)
-                            addBreakpoint(devAuth, pendingBp)
+                            addLiveInstrument(devAuth, pendingBp)
                         } else {
-                            handler.handle(addBreakpoint(devAuth, pendingBp))
+                            handler.handle(addLiveInstrument(devAuth, pendingBp))
                         }
                     }
                     is LiveLog -> {
@@ -208,9 +208,9 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
 
                         if (pendingLog.applyImmediately) {
                             addApplyImmediatelyHandler(pendingLog.id!!, handler)
-                            addLog(devAuth, pendingLog)
+                            addLiveInstrument(devAuth, pendingLog)
                         } else {
-                            handler.handle(addLog(devAuth, pendingLog))
+                            handler.handle(addLiveInstrument(devAuth, pendingLog))
                         }
                     }
                     is LiveMeter -> {
@@ -230,9 +230,9 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
                         setupLiveMeter(pendingMeter)
                         if (pendingMeter.applyImmediately) {
                             addApplyImmediatelyHandler(pendingMeter.id!!, handler)
-                            addMeter(devAuth, pendingMeter)
+                            addLiveInstrument(devAuth, pendingMeter)
                         } else {
-                            handler.handle(addMeter(devAuth, pendingMeter))
+                            handler.handle(addLiveInstrument(devAuth, pendingMeter))
                         }
                     }
                     is LiveSpan -> {
@@ -251,9 +251,9 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
 
                         if (pendingSpan.applyImmediately) {
                             addApplyImmediatelyHandler(pendingSpan.id!!, handler)
-                            addSpan(devAuth, pendingSpan)
+                            addLiveInstrument(devAuth, pendingSpan)
                         } else {
-                            handler.handle(addSpan(devAuth, pendingSpan))
+                            handler.handle(addLiveInstrument(devAuth, pendingSpan))
                         }
                     }
                     else -> {
@@ -696,130 +696,55 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
         return liveInstruments.map { it.instrument }.filterIsInstance(LiveSpan::class.java).filter { !it.pending }
     }
 
-    fun addMeter(
-        devAuth: DeveloperAuth, meter: LiveMeter, alertSubscribers: Boolean = true
+    fun addLiveInstrument(
+        devAuth: DeveloperAuth, liveInstrument: LiveInstrument, alertSubscribers: Boolean = true
     ): AsyncResult<LiveInstrument> {
-        log.debug("Adding live meter: $meter")
+        log.debug("Adding live instrument: $liveInstrument")
         val debuggerCommand = LiveInstrumentCommand(
-            LiveInstrumentCommand.CommandType.ADD_LIVE_INSTRUMENT,
-            LiveInstrumentContext()
+            LiveInstrumentCommand.CommandType.ADD_LIVE_INSTRUMENT, LiveInstrumentContext()
         )
-        debuggerCommand.context.addLiveInstrument(meter)
+        debuggerCommand.context.addLiveInstrument(liveInstrument)
 
-        val devMeter = DeveloperInstrument(devAuth, meter)
-        liveInstruments.add(devMeter)
+        val probeAddress = when (liveInstrument.type) {
+            LiveInstrumentType.BREAKPOINT -> LIVE_BREAKPOINT_REMOTE
+            LiveInstrumentType.LOG -> LIVE_LOG_REMOTE
+            LiveInstrumentType.METER -> LIVE_METER_REMOTE
+            LiveInstrumentType.SPAN -> LIVE_SPAN_REMOTE
+        }
+        val devInstrument = DeveloperInstrument(devAuth, liveInstrument)
+        liveInstruments.add(devInstrument)
         try {
-            dispatchCommand(devAuth.accessToken, LIVE_METER_REMOTE, meter.location, debuggerCommand)
+            dispatchCommand(devAuth.accessToken, probeAddress, liveInstrument.location, debuggerCommand)
         } catch (ex: ReplyException) {
             return if (ex.failureType() == ReplyFailure.NO_HANDLERS) {
-                if (meter.applyImmediately) {
-                    liveInstruments.remove(devMeter)
-                    log.warn("Live meter failed due to missing remote(s)")
-                    Future.failedFuture(MissingRemoteException(LIVE_METER_REMOTE.address).toEventBusException())
+                if (liveInstrument.applyImmediately) {
+                    liveInstruments.remove(devInstrument)
+                    log.warn("Live instrument failed due to missing remote(s)")
+                    Future.failedFuture(MissingRemoteException(probeAddress.address).toEventBusException())
                 } else {
-                    log.info("Live meter pending application on probe connection")
-                    Future.succeededFuture(meter)
+                    log.info("Live instrument pending application on probe connection")
+                    Future.succeededFuture(liveInstrument)
                 }
             } else {
-                liveInstruments.remove(devMeter)
-                log.warn("Failed to add live meter: Reason: {}", ex.message)
+                liveInstruments.remove(devInstrument)
+                log.warn("Failed to add live instrument: Reason: {}", ex.message)
                 Future.failedFuture(ex)
             }
         }
 
         if (alertSubscribers) {
-            vertx.eventBus().publish(
-                SourceMarkerServices.Provide.LIVE_INSTRUMENT_SUBSCRIBER,
-                JsonObject.mapFrom(
-                    LiveInstrumentEvent(LiveInstrumentEventType.METER_ADDED, Json.encode(meter))
-                )
-            )
-        }
-        return Future.succeededFuture(meter)
-    }
-
-    fun addBreakpoint(
-        devAuth: DeveloperAuth, breakpoint: LiveBreakpoint, alertSubscribers: Boolean = true
-    ): AsyncResult<LiveInstrument> {
-        log.debug("Adding live breakpoint: $breakpoint")
-        val debuggerCommand = LiveInstrumentCommand(
-            LiveInstrumentCommand.CommandType.ADD_LIVE_INSTRUMENT,
-            LiveInstrumentContext()
-        )
-        debuggerCommand.context.addLiveInstrument(breakpoint)
-
-        val devBreakpoint = DeveloperInstrument(devAuth, breakpoint)
-        liveInstruments.add(devBreakpoint)
-        try {
-            dispatchCommand(devAuth.accessToken, LIVE_BREAKPOINT_REMOTE, breakpoint.location, debuggerCommand)
-        } catch (ex: ReplyException) {
-            return if (ex.failureType() == ReplyFailure.NO_HANDLERS) {
-                if (breakpoint.applyImmediately) {
-                    liveInstruments.remove(devBreakpoint)
-                    log.warn("Live breakpoint failed due to missing remote(s)")
-                    Future.failedFuture(MissingRemoteException(LIVE_BREAKPOINT_REMOTE.address).toEventBusException())
-                } else {
-                    log.info("Live breakpoint pending application on probe connection")
-                    Future.succeededFuture(breakpoint)
-                }
-            } else {
-                liveInstruments.remove(devBreakpoint)
-                log.warn("Failed to add live breakpoint: Reason: {}", ex.message)
-                Future.failedFuture(ex)
+            val eventType = when (liveInstrument.type) {
+                LiveInstrumentType.BREAKPOINT -> LiveInstrumentEventType.BREAKPOINT_ADDED
+                LiveInstrumentType.LOG -> LiveInstrumentEventType.LOG_ADDED
+                LiveInstrumentType.METER -> LiveInstrumentEventType.METER_ADDED
+                LiveInstrumentType.SPAN -> LiveInstrumentEventType.SPAN_ADDED
             }
-        }
-
-        if (alertSubscribers) {
             vertx.eventBus().publish(
                 SourceMarkerServices.Provide.LIVE_INSTRUMENT_SUBSCRIBER,
-                JsonObject.mapFrom(
-                    LiveInstrumentEvent(LiveInstrumentEventType.BREAKPOINT_ADDED, Json.encode(breakpoint))
-                )
+                JsonObject.mapFrom(LiveInstrumentEvent(eventType, Json.encode(liveInstrument)))
             )
         }
-        return Future.succeededFuture(breakpoint)
-    }
-
-    fun addSpan(
-        devAuth: DeveloperAuth, span: LiveSpan, alertSubscribers: Boolean = true
-    ): AsyncResult<LiveInstrument> {
-        log.debug("Adding live span: $span")
-        val debuggerCommand = LiveInstrumentCommand(
-            LiveInstrumentCommand.CommandType.ADD_LIVE_INSTRUMENT,
-            LiveInstrumentContext()
-        )
-        debuggerCommand.context.addLiveInstrument(span)
-
-        val devSpan = DeveloperInstrument(devAuth, span)
-        liveInstruments.add(devSpan)
-        try {
-            dispatchCommand(devAuth.accessToken, LIVE_SPAN_REMOTE, span.location, debuggerCommand)
-        } catch (ex: ReplyException) {
-            return if (ex.failureType() == ReplyFailure.NO_HANDLERS) {
-                if (span.applyImmediately) {
-                    liveInstruments.remove(devSpan)
-                    log.warn("Live span failed due to missing remote(s)")
-                    Future.failedFuture(MissingRemoteException(LIVE_SPAN_REMOTE.address).toEventBusException())
-                } else {
-                    log.info("Live span pending application on probe connection")
-                    Future.succeededFuture(span)
-                }
-            } else {
-                liveInstruments.remove(devSpan)
-                log.warn("Failed to add live span: Reason: {}", ex.message)
-                Future.failedFuture(ex)
-            }
-        }
-
-        if (alertSubscribers) {
-            vertx.eventBus().publish(
-                SourceMarkerServices.Provide.LIVE_INSTRUMENT_SUBSCRIBER,
-                JsonObject.mapFrom(
-                    LiveInstrumentEvent(LiveInstrumentEventType.SPAN_ADDED, Json.encode(span))
-                )
-            )
-        }
-        return Future.succeededFuture(span)
+        return Future.succeededFuture(liveInstrument)
     }
 
     private fun dispatchCommand(
@@ -868,48 +793,6 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
 
     fun getLiveInstrumentsByIds(ids: List<String>): List<LiveInstrument> {
         return ids.mapNotNull { getLiveInstrumentById(it) }
-    }
-
-    fun addLog(
-        devAuth: DeveloperAuth, liveLog: LiveLog, alertSubscribers: Boolean = true
-    ): AsyncResult<LiveInstrument> {
-        log.debug("Adding live log: $liveLog")
-        val logCommand = LiveInstrumentCommand(
-            LiveInstrumentCommand.CommandType.ADD_LIVE_INSTRUMENT,
-            LiveInstrumentContext()
-        )
-        logCommand.context.addLiveInstrument(liveLog)
-
-        val devLog = DeveloperInstrument(devAuth, liveLog)
-        liveInstruments.add(devLog)
-        try {
-            dispatchCommand(devAuth.accessToken, LIVE_LOG_REMOTE, liveLog.location, logCommand)
-        } catch (ex: ReplyException) {
-            return if (ex.failureType() == ReplyFailure.NO_HANDLERS) {
-                if (liveLog.applyImmediately) {
-                    liveInstruments.remove(devLog)
-                    log.warn("Live log failed due to missing remote")
-                    Future.failedFuture(MissingRemoteException(LIVE_LOG_REMOTE.address).toEventBusException())
-                } else {
-                    log.info("Live log pending application on probe connection")
-                    Future.succeededFuture(liveLog)
-                }
-            } else {
-                liveInstruments.remove(devLog)
-                log.warn("Failed to add live log: Reason: {}", ex.message)
-                Future.failedFuture(ex)
-            }
-        }
-
-        if (alertSubscribers) {
-            vertx.eventBus().publish(
-                SourceMarkerServices.Provide.LIVE_INSTRUMENT_SUBSCRIBER,
-                JsonObject.mapFrom(
-                    LiveInstrumentEvent(LiveInstrumentEventType.LOG_ADDED, Json.encode(liveLog))
-                )
-            )
-        }
-        return Future.succeededFuture(liveLog)
     }
 
     private fun removeLiveInstrument(
