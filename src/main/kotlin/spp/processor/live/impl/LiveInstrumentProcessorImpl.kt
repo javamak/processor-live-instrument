@@ -319,10 +319,10 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
 
         GlobalScope.launch(vertx.dispatcher()) {
             try {
-                val breakpointsResult = removeBreakpoints(devAuth, location)
-                val logsResult = removeLogs(devAuth, location)
-                val metersResult = removeMeters(devAuth, location)
-                val spansResult = removeSpans(devAuth, location)
+                val breakpointsResult = removeInstruments(devAuth, location, LiveInstrumentType.BREAKPOINT)
+                val logsResult = removeInstruments(devAuth, location, LiveInstrumentType.LOG)
+                val metersResult = removeInstruments(devAuth, location, LiveInstrumentType.METER)
+                val spansResult = removeInstruments(devAuth, location, LiveInstrumentType.SPAN)
 
                 when {
                     breakpointsResult.failed() -> handler.handle(Future.failedFuture(breakpointsResult.cause()))
@@ -890,108 +890,44 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
         return Future.succeededFuture(instrumentRemoval.instrument)
     }
 
-    fun removeBreakpoints(devAuth: DeveloperAuth, location: LiveSourceLocation): AsyncResult<List<LiveInstrument>> {
-        log.debug("Removing live breakpoint(s): $location")
+    fun removeInstruments(
+        devAuth: DeveloperAuth, location: LiveSourceLocation, instrumentType: LiveInstrumentType
+    ): AsyncResult<List<LiveInstrument>> {
+        log.debug("Removing live instrument(s): $location")
         val debuggerCommand = LiveInstrumentCommand(
             LiveInstrumentCommand.CommandType.REMOVE_LIVE_INSTRUMENT,
             LiveInstrumentContext()
         )
         debuggerCommand.context.addLocation(location)
 
-        val result = liveInstruments.filter { it.instrument.location == location && it.instrument is LiveBreakpoint }
+        val result = liveInstruments.filter {
+            it.instrument.location == location && it.instrument.type == instrumentType
+        }
         liveInstruments.removeAll(result.toSet())
         if (result.isEmpty()) {
-            log.info("Could not find live breakpoint(s) at: $location")
+            log.info("Could not find live instrument(s) at: $location")
         } else {
-            dispatchCommand(devAuth.accessToken, LIVE_BREAKPOINT_REMOTE, location, debuggerCommand)
-            log.debug("Removed live breakpoint(s) at: $location")
+            val probeAddress = when (instrumentType) {
+                LiveInstrumentType.BREAKPOINT -> LIVE_BREAKPOINT_REMOTE
+                LiveInstrumentType.LOG -> LIVE_LOG_REMOTE
+                LiveInstrumentType.METER -> LIVE_METER_REMOTE
+                LiveInstrumentType.SPAN -> LIVE_SPAN_REMOTE
+            }
+            dispatchCommand(devAuth.accessToken, probeAddress, location, debuggerCommand)
+            log.debug("Removed live instrument(s) at: $location")
 
+            val eventType = when (instrumentType) {
+                LiveInstrumentType.BREAKPOINT -> LiveInstrumentEventType.BREAKPOINT_REMOVED
+                LiveInstrumentType.LOG -> LiveInstrumentEventType.LOG_REMOVED
+                LiveInstrumentType.METER -> LiveInstrumentEventType.METER_REMOVED
+                LiveInstrumentType.SPAN -> LiveInstrumentEventType.SPAN_REMOVED
+            }
             vertx.eventBus().publish(
                 SourceMarkerServices.Provide.LIVE_INSTRUMENT_SUBSCRIBER,
-                JsonObject.mapFrom(
-                    LiveInstrumentEvent(LiveInstrumentEventType.BREAKPOINT_REMOVED, Json.encode(result))
-                )
+                JsonObject.mapFrom(LiveInstrumentEvent(eventType, Json.encode(result)))
             )
         }
-        return Future.succeededFuture(result.map { it.instrument as LiveBreakpoint })
-    }
-
-    fun removeLogs(devAuth: DeveloperAuth, location: LiveSourceLocation): AsyncResult<List<LiveInstrument>> {
-        log.debug("Removing live log(s): $location")
-        val debuggerCommand = LiveInstrumentCommand(
-            LiveInstrumentCommand.CommandType.REMOVE_LIVE_INSTRUMENT,
-            LiveInstrumentContext()
-        )
-        debuggerCommand.context.addLocation(location)
-
-        val result = liveInstruments.filter { it.instrument.location == location && it.instrument is LiveLog }
-        liveInstruments.removeAll(result.toSet())
-        if (result.isEmpty()) {
-            log.info("Could not find live log(s) at: $location")
-        } else {
-            dispatchCommand(devAuth.accessToken, LIVE_LOG_REMOTE, location, debuggerCommand)
-            log.debug("Removed live log(s) at: $location")
-
-            vertx.eventBus().publish(
-                SourceMarkerServices.Provide.LIVE_INSTRUMENT_SUBSCRIBER,
-                JsonObject.mapFrom(
-                    LiveInstrumentEvent(LiveInstrumentEventType.LOG_REMOVED, Json.encode(result))
-                )
-            )
-        }
-        return Future.succeededFuture(result.map { it.instrument as LiveLog })
-    }
-
-    fun removeMeters(devAuth: DeveloperAuth, location: LiveSourceLocation): AsyncResult<List<LiveInstrument>> {
-        log.debug("Removing live meter(s): $location")
-        val debuggerCommand = LiveInstrumentCommand(
-            LiveInstrumentCommand.CommandType.REMOVE_LIVE_INSTRUMENT,
-            LiveInstrumentContext()
-        )
-        debuggerCommand.context.addLocation(location)
-
-        val result = liveInstruments.filter { it.instrument.location == location && it.instrument is LiveMeter }
-        liveInstruments.removeAll(result.toSet())
-        if (result.isEmpty()) {
-            log.info("Could not find live meter(s) at: $location")
-        } else {
-            dispatchCommand(devAuth.accessToken, LIVE_METER_REMOTE, location, debuggerCommand)
-            log.debug("Removed live meter(s) at: $location")
-
-            vertx.eventBus().publish(
-                SourceMarkerServices.Provide.LIVE_INSTRUMENT_SUBSCRIBER,
-                JsonObject.mapFrom(
-                    LiveInstrumentEvent(LiveInstrumentEventType.METER_REMOVED, Json.encode(result))
-                )
-            )
-        }
-        return Future.succeededFuture(result.map { it.instrument as LiveMeter })
-    }
-
-    fun removeSpans(devAuth: DeveloperAuth, location: LiveSourceLocation): AsyncResult<List<LiveInstrument>> {
-        log.debug("Removing live span(s): $location")
-        val debuggerCommand = LiveInstrumentCommand(
-            LiveInstrumentCommand.CommandType.REMOVE_LIVE_INSTRUMENT,
-            LiveInstrumentContext()
-        )
-        debuggerCommand.context.addLocation(location)
-
-        val result = liveInstruments.filter { it.instrument.location == location && it.instrument is LiveSpan }
-        liveInstruments.removeAll(result.toSet())
-        if (result.isEmpty()) {
-            log.info("Could not find live span(s) at: $location")
-        } else {
-            dispatchCommand(devAuth.accessToken, LIVE_SPAN_REMOTE, location, debuggerCommand)
-            log.debug("Removed live span(s) at: $location")
-
-            vertx.eventBus().publish(
-                SourceMarkerServices.Provide.LIVE_INSTRUMENT_SUBSCRIBER,
-                JsonObject.mapFrom(
-                    LiveInstrumentEvent(LiveInstrumentEventType.SPAN_REMOVED, Json.encode(result))
-                )
-            )
-        }
-        return Future.succeededFuture(result.map { it.instrument as LiveSpan })
+        return Future.succeededFuture(result.filter { it.instrument.type == instrumentType }.map { it.instrument })
     }
 
     //todo: impl probe clear command
