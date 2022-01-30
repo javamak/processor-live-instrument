@@ -8,4 +8,4 @@ ADD spp-probe-*.jar ./spp-probe.jar
 ADD spp-probe.yml .
 
 CMD java -javaagent:spp-probe.jar -jar E2EApp.jar
-#CMD java -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5105 -javaagent:spp-probe-0.2.1.jar -jar E2EApp.jar
+#CMD java -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5105 -javaagent:spp-probe.jar -jar E2EApp.jar
