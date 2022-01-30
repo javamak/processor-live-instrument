@@ -145,10 +145,6 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
         listenForLiveSpans()
     }
 
-    override suspend fun stop() {
-        log.info("Stopping LiveInstrumentProcessorImpl")
-    }
-
     override fun addLiveInstrument(instrument: LiveInstrument, handler: Handler<AsyncResult<LiveInstrument>>) {
         val devAuth = DeveloperAuth.from(handler)
         addLiveInstrument(devAuth, instrument, handler)
