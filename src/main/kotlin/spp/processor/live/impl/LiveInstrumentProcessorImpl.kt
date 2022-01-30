@@ -38,6 +38,7 @@ import org.apache.skywalking.oap.server.core.storage.StorageModule
 import org.apache.skywalking.oap.server.core.storage.query.IMetadataQueryDAO
 import org.joor.Reflect
 import spp.processor.InstrumentProcessor
+import spp.processor.common.DeveloperAuth
 import spp.processor.common.FeedbackProcessor
 import spp.processor.common.SkyWalkingStorage.Companion.METRIC_PREFIX
 import spp.protocol.SourceMarkerServices

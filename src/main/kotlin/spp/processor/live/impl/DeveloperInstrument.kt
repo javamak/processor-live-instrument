@@ -1,5 +1,6 @@
 package spp.processor.live.impl
 
+import spp.processor.common.DeveloperAuth
 import spp.protocol.instrument.LiveInstrument
 import java.util.*
 
