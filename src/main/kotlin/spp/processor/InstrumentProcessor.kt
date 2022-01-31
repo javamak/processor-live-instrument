@@ -47,11 +47,10 @@ import spp.protocol.auth.RolePermission
 import spp.protocol.developer.SelfInfo
 import spp.protocol.platform.PlatformAddress
 import spp.protocol.probe.ProbeAddress
-import spp.protocol.processor.ProcessorAddress
 import spp.protocol.service.error.InstrumentAccessDenied
 import spp.protocol.service.error.PermissionAccessDenied
 import spp.protocol.service.live.LiveInstrumentService
-import spp.protocol.util.AccessChecker
+import spp.protocol.utils.AccessChecker
 import spp.protocol.util.KSerializers
 import kotlin.system.exitProcess
 
