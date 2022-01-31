@@ -2,6 +2,7 @@ import java.io.FileOutputStream
 import java.net.URL
 
 plugins {
+    id("com.diffplug.spotless")
     id("com.avast.gradle.docker-compose")
     id("com.github.johnrengelman.shadow")
     kotlin("jvm")
@@ -215,4 +216,10 @@ dockerCompose {
     dockerComposeWorkingDirectory.set(File("./e2e"))
     removeVolumes.set(true)
     waitForTcpPorts.set(false)
+}
+
+spotless {
+    kotlin {
+        licenseHeaderFile(file("LICENSE-HEADER.txt"))
+    }
 }
