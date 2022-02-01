@@ -60,14 +60,10 @@ import spp.protocol.SourceMarkerServices
 import spp.protocol.artifact.exception.LiveStackTrace
 import spp.protocol.error.MissingRemoteException
 import spp.protocol.instrument.*
-import spp.protocol.instrument.breakpoint.LiveBreakpoint
 import spp.protocol.instrument.breakpoint.event.LiveBreakpointRemoved
-import spp.protocol.instrument.log.LiveLog
 import spp.protocol.instrument.log.event.LiveLogRemoved
-import spp.protocol.instrument.meter.LiveMeter
 import spp.protocol.instrument.meter.MeterType
 import spp.protocol.instrument.meter.event.LiveMeterRemoved
-import spp.protocol.instrument.span.LiveSpan
 import spp.protocol.instrument.span.event.LiveSpanRemoved
 import spp.protocol.platform.PlatformAddress
 import spp.protocol.probe.ProbeAddress
@@ -308,15 +304,15 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
         }
     }
 
-    override fun addLiveInstruments(batch: LiveInstrumentBatch): Future<List<LiveInstrument>> {
+    override fun addLiveInstruments(instruments: List<LiveInstrument>): Future<List<LiveInstrument>> {
         val devAuth = Vertx.currentContext().get<DeveloperAuth>("developer")
         log.info(
             "Received add live instrument batch request. Developer: {} - Location(s): {}",
-            devAuth, batch.instruments.map { it.location.let { it.source + ":" + it.line } }
+            devAuth, instruments.map { it.location.let { it.source + ":" + it.line } }
         )
 
         val results = mutableListOf<Future<*>>()
-        batch.instruments.forEach {
+        instruments.forEach {
             results.add(addLiveInstrument(devAuth, it))
         }
 

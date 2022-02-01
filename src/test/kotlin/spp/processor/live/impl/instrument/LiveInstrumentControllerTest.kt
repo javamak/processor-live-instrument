@@ -17,19 +17,8 @@
  */
 package spp.processor.live.impl.instrument
 
-import io.vertx.core.Vertx
 import io.vertx.junit5.VertxExtension
-import io.vertx.junit5.VertxTestContext
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
-import spp.processor.live.impl.LiveInstrumentProcessorImpl
-import spp.protocol.instrument.LiveSourceLocation
-import spp.protocol.instrument.breakpoint.LiveBreakpoint
-import spp.protocol.probe.ProbeAddress
 
 @ExtendWith(VertxExtension::class)
 class LiveInstrumentControllerTest {

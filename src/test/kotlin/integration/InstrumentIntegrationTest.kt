@@ -29,10 +29,10 @@ import org.junit.jupiter.api.extension.ExtendWith
 import org.slf4j.LoggerFactory
 import spp.protocol.SourceMarkerServices
 import spp.protocol.SourceMarkerServices.Provide
+import spp.protocol.instrument.LiveBreakpoint
 import spp.protocol.instrument.LiveInstrumentEvent
 import spp.protocol.instrument.LiveInstrumentEventType
 import spp.protocol.instrument.LiveSourceLocation
-import spp.protocol.instrument.breakpoint.LiveBreakpoint
 import spp.protocol.instrument.breakpoint.event.LiveBreakpointHit
 import spp.protocol.service.live.LiveInstrumentService
 import java.util.*
