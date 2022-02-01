@@ -55,6 +55,7 @@ import spp.processor.InstrumentProcessor
 import spp.processor.common.DeveloperAuth
 import spp.processor.common.FeedbackProcessor
 import spp.processor.common.SkyWalkingStorage.Companion.METRIC_PREFIX
+import spp.protocol.ProtocolMarshaller
 import spp.protocol.SourceMarkerServices
 import spp.protocol.artifact.exception.LiveStackTrace
 import spp.protocol.error.MissingRemoteException
@@ -69,7 +70,6 @@ import spp.protocol.instrument.meter.event.LiveMeterRemoved
 import spp.protocol.instrument.span.LiveSpan
 import spp.protocol.instrument.span.event.LiveSpanRemoved
 import spp.protocol.platform.PlatformAddress
-import spp.protocol.status.ActiveProbe
 import spp.protocol.probe.ProbeAddress
 import spp.protocol.probe.ProbeAddress.*
 import spp.protocol.probe.command.CommandType
@@ -77,6 +77,7 @@ import spp.protocol.probe.command.LiveInstrumentCommand
 import spp.protocol.probe.command.LiveInstrumentContext
 import spp.protocol.service.error.LiveInstrumentException
 import spp.protocol.service.live.LiveInstrumentService
+import spp.protocol.status.ActiveProbe
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.util.*
@@ -354,7 +355,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
             val promise = Promise.promise<List<LiveInstrument>>()
             CompositeFuture.all(breakpointsResult, logsResult, metersResult, spansResult).onComplete {
                 if (it.succeeded()) {
-                    promise.complete(it.result().list())
+                    promise.complete(it.result().list<List<LiveInstrument>>().flatten())
                 } else {
                     promise.fail(it.cause())
                 }
@@ -493,7 +494,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
         if (log.isTraceEnabled) log.trace("Got live instrument removed: {}", it.body())
         val instrumentCommand = it.body().getString("command")
         val instrumentData = if (instrumentCommand != null) {
-            val command = Json.decodeValue(instrumentCommand, LiveInstrumentCommand::class.java)
+            val command = ProtocolMarshaller.deserializeLiveInstrumentCommand(JsonObject(instrumentCommand))
             JsonObject.mapFrom(command.context.instruments.first()) //todo: check for multiple
         } else if (it.body().containsKey("breakpoint")) {
             JsonObject(it.body().getString("breakpoint"))
