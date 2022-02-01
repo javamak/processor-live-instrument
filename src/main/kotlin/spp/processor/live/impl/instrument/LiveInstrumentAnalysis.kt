@@ -225,15 +225,11 @@ class LiveInstrumentAnalysis : AnalysisListenerFactory, LogAnalysisListenerFacto
                 instrumentMeta["last_hit_at"] = System.currentTimeMillis().toString()
             }
 
-            //todo: remove when Log.getFormattedMessage is remove
-            val logJson = JsonObject.mapFrom(logHit)
-            logJson.getJsonObject("logResult").getJsonArray("logs").onEach {
-                (it as JsonObject).remove("formattedMessage")
-            }
-
             vertx.eventBus().publish(
                 SourceMarkerServices.Provide.LIVE_INSTRUMENT_SUBSCRIBER,
-                JsonObject.mapFrom(LiveInstrumentEvent(LiveInstrumentEventType.LOG_HIT, logJson.toString()))
+                JsonObject.mapFrom(
+                    LiveInstrumentEvent(LiveInstrumentEventType.LOG_HIT, JsonObject.mapFrom(logHit).toString())
+                )
             )
             if (log.isTraceEnabled) log.trace("Published live log hit")
         }
