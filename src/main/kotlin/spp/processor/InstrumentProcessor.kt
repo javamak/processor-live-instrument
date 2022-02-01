@@ -183,7 +183,7 @@ object InstrumentProcessor : FeedbackProcessor() {
     ) {
         if (msg.headers().get("action") == "addLiveInstruments") {
             val batchPromise = Promise.promise<Message<JsonObject>>()
-            msg.body().getJsonObject("batch").getJsonArray("instruments").list.forEach {
+            msg.body().getJsonArray("instruments").list.forEach {
                 val instrumentType = (it as JsonObject).getString("type")
                 val necessaryPermission = RolePermission.valueOf("ADD_LIVE_$instrumentType")
                 if (!selfInfo.permissions.contains(necessaryPermission)) {
@@ -234,7 +234,7 @@ object InstrumentProcessor : FeedbackProcessor() {
         selfInfo: SelfInfo, msg: Message<JsonObject>, promise: Promise<Message<JsonObject>>
     ) {
         if (msg.headers().get("action") == "addLiveInstruments") {
-            val instruments = msg.body().getJsonObject("batch").getJsonArray("instruments")
+            val instruments = msg.body().getJsonArray("instruments")
             for (i in 0 until instruments.size()) {
                 val sourceLocation = instruments.getJsonObject(i)
                     .getJsonObject("location").getString("source")

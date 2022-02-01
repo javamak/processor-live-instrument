@@ -60,11 +60,7 @@ import spp.protocol.SourceMarkerServices
 import spp.protocol.artifact.exception.LiveStackTrace
 import spp.protocol.error.MissingRemoteException
 import spp.protocol.instrument.*
-import spp.protocol.instrument.breakpoint.event.LiveBreakpointRemoved
-import spp.protocol.instrument.log.event.LiveLogRemoved
 import spp.protocol.instrument.meter.MeterType
-import spp.protocol.instrument.meter.event.LiveMeterRemoved
-import spp.protocol.instrument.span.event.LiveSpanRemoved
 import spp.protocol.platform.PlatformAddress
 import spp.protocol.probe.ProbeAddress
 import spp.protocol.probe.ProbeAddress.*
@@ -646,20 +642,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
                 LiveInstrumentType.METER -> LiveInstrumentEventType.METER_REMOVED
                 LiveInstrumentType.SPAN -> LiveInstrumentEventType.SPAN_REMOVED
             }
-            val eventData = when (liveInstrument.type) {
-                LiveInstrumentType.BREAKPOINT -> {
-                    Json.encode(LiveBreakpointRemoved(liveInstrument.id!!, occurredAt, jvmCause))
-                }
-                LiveInstrumentType.LOG -> {
-                    Json.encode(LiveLogRemoved(liveInstrument.id!!, occurredAt, jvmCause, liveInstrument as LiveLog))
-                }
-                LiveInstrumentType.METER -> {
-                    Json.encode(LiveMeterRemoved(liveInstrument.id!!, occurredAt, jvmCause))
-                }
-                LiveInstrumentType.SPAN -> {
-                    Json.encode(LiveSpanRemoved(liveInstrument.id!!, occurredAt, jvmCause))
-                }
-            }
+            val eventData = Json.encode(LiveInstrumentRemoved(liveInstrument, occurredAt, jvmCause))
             vertx.eventBus().publish(
                 SourceMarkerServices.Provide.LIVE_INSTRUMENT_SUBSCRIBER,
                 JsonObject.mapFrom(LiveInstrumentEvent(eventType, eventData))
