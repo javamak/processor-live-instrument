@@ -17,10 +17,7 @@
  */
 package spp.processor.live.impl
 
-import io.vertx.core.AsyncResult
-import io.vertx.core.Future
-import io.vertx.core.Handler
-import io.vertx.core.Promise
+import io.vertx.core.*
 import io.vertx.core.eventbus.Message
 import io.vertx.core.eventbus.ReplyException
 import io.vertx.core.eventbus.ReplyFailure
@@ -133,25 +130,25 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
             if (remote == LIVE_BREAKPOINT_REMOTE.address) {
                 log.debug("Live breakpoint remote registered. Sending active live breakpoints")
                 liveInstruments.filter { it.instrument is LiveBreakpoint }.forEach {
-                    addLiveInstrument(it.developerAuth, it.instrument as LiveBreakpoint, false)
+                    _addLiveInstrument(it.developerAuth, it.instrument as LiveBreakpoint, false)
                 }
             }
             if (remote == LIVE_LOG_REMOTE.address) {
                 log.debug("Live log remote registered. Sending active live logs")
                 liveInstruments.filter { it.instrument is LiveLog }.forEach {
-                    addLiveInstrument(it.developerAuth, it.instrument as LiveLog, false)
+                    _addLiveInstrument(it.developerAuth, it.instrument as LiveLog, false)
                 }
             }
             if (remote == LIVE_METER_REMOTE.address) {
                 log.debug("Live meter remote registered. Sending active live meters")
                 liveInstruments.filter { it.instrument is LiveMeter }.forEach {
-                    addLiveInstrument(it.developerAuth, it.instrument as LiveMeter, false)
+                    _addLiveInstrument(it.developerAuth, it.instrument as LiveMeter, false)
                 }
             }
             if (remote == LIVE_SPAN_REMOTE.address) {
                 log.debug("Live span remote registered. Sending active live spans")
                 liveInstruments.filter { it.instrument is LiveSpan }.forEach {
-                    addLiveInstrument(it.developerAuth, it.instrument as LiveSpan, false)
+                    _addLiveInstrument(it.developerAuth, it.instrument as LiveSpan, false)
                 }
             }
         }
@@ -162,295 +159,294 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
         listenForLiveSpans()
     }
 
-    override fun addLiveInstrument(instrument: LiveInstrument, handler: Handler<AsyncResult<LiveInstrument>>) {
-        val devAuth = DeveloperAuth.from(handler)
-        addLiveInstrument(devAuth, instrument, handler)
+    override fun addLiveInstrument(instrument: LiveInstrument): Future<LiveInstrument> {
+        val devAuth = Vertx.currentContext().get<DeveloperAuth>("developer")
+        return addLiveInstrument(devAuth, instrument)
     }
 
     private fun addLiveInstrument(
         devAuth: DeveloperAuth,
-        instrument: LiveInstrument,
-        handler: Handler<AsyncResult<LiveInstrument>>
-    ) {
+        instrument: LiveInstrument
+    ): Future<LiveInstrument> {
         log.info(
             "Received add live instrument request. Developer: {} - Location: {}",
             devAuth, instrument.location.let { it.source + ":" + it.line }
         )
 
-        GlobalScope.launch(vertx.dispatcher()) {
-            try {
-                when (instrument) {
-                    is LiveBreakpoint -> {
-                        val pendingBp = if (instrument.id == null) {
-                            instrument.copy(id = UUID.randomUUID().toString())
-                        } else {
-                            instrument
-                        }.copy(
-                            pending = true,
-                            applied = false,
-                            meta = instrument.meta.toMutableMap().apply {
-                                put("created_at", System.currentTimeMillis().toString())
-                                put("created_by", devAuth.selfId)
-                                put("hit_count", AtomicInteger())
-                            }
-                        )
-
-                        if (pendingBp.applyImmediately) {
-                            addApplyImmediatelyHandler(pendingBp.id!!, handler)
-                            addLiveInstrument(devAuth, pendingBp)
-                        } else {
-                            handler.handle(addLiveInstrument(devAuth, pendingBp))
+        try {
+            val promise = Promise.promise<LiveInstrument>()
+            when (instrument) {
+                is LiveBreakpoint -> {
+                    val pendingBp = if (instrument.id == null) {
+                        instrument.copy(id = UUID.randomUUID().toString())
+                    } else {
+                        instrument
+                    }.copy(
+                        pending = true,
+                        applied = false,
+                        meta = instrument.meta.toMutableMap().apply {
+                            put("created_at", System.currentTimeMillis().toString())
+                            put("created_by", devAuth.selfId)
+                            put("hit_count", AtomicInteger())
                         }
-                    }
-                    is LiveLog -> {
-                        val pendingLog = if (instrument.id == null) {
-                            instrument.copy(id = UUID.randomUUID().toString())
-                        } else {
-                            instrument
-                        }.copy(
-                            pending = true,
-                            applied = false,
-                            meta = instrument.meta.toMutableMap().apply {
-                                put("created_at", System.currentTimeMillis().toString())
-                                put("created_by", devAuth.selfId)
-                                put("hit_count", AtomicInteger())
-                            }
-                        )
+                    )
 
-                        if (pendingLog.applyImmediately) {
-                            addApplyImmediatelyHandler(pendingLog.id!!, handler)
-                            addLiveInstrument(devAuth, pendingLog)
-                        } else {
-                            handler.handle(addLiveInstrument(devAuth, pendingLog))
-                        }
-                    }
-                    is LiveMeter -> {
-                        val pendingMeter = if (instrument.id == null) {
-                            instrument.copy(id = UUID.randomUUID().toString())
-                        } else {
-                            instrument
-                        }.copy(
-                            pending = true,
-                            applied = false,
-                            meta = instrument.meta.toMutableMap().apply {
-                                put("created_at", System.currentTimeMillis().toString())
-                                put("created_by", devAuth.selfId)
+                    if (pendingBp.applyImmediately) {
+                        addApplyImmediatelyHandler(pendingBp.id!!, promise)
+                        _addLiveInstrument(devAuth, pendingBp)
+                    } else {
+                        _addLiveInstrument(devAuth, pendingBp).onComplete {
+                            if (it.succeeded()) {
+                                promise.complete(it.result())
+                            } else {
+                                promise.fail(it.cause())
                             }
-                        )
-
-                        setupLiveMeter(pendingMeter)
-                        if (pendingMeter.applyImmediately) {
-                            addApplyImmediatelyHandler(pendingMeter.id!!, handler)
-                            addLiveInstrument(devAuth, pendingMeter)
-                        } else {
-                            handler.handle(addLiveInstrument(devAuth, pendingMeter))
                         }
-                    }
-                    is LiveSpan -> {
-                        val pendingSpan = if (instrument.id == null) {
-                            instrument.copy(id = UUID.randomUUID().toString())
-                        } else {
-                            instrument
-                        }.copy(
-                            pending = true,
-                            applied = false,
-                            meta = instrument.meta.toMutableMap().apply {
-                                put("created_at", System.currentTimeMillis().toString())
-                                put("created_by", devAuth.selfId)
-                            }
-                        )
-
-                        if (pendingSpan.applyImmediately) {
-                            addApplyImmediatelyHandler(pendingSpan.id!!, handler)
-                            addLiveInstrument(devAuth, pendingSpan)
-                        } else {
-                            handler.handle(addLiveInstrument(devAuth, pendingSpan))
-                        }
-                    }
-                    else -> {
-                        handler.handle(Future.failedFuture(IllegalArgumentException("Unknown live instrument type")))
                     }
                 }
-            } catch (throwable: Throwable) {
-                log.warn("Add live instrument failed", throwable)
-                handler.handle(Future.failedFuture(throwable))
+                is LiveLog -> {
+                    val pendingLog = if (instrument.id == null) {
+                        instrument.copy(id = UUID.randomUUID().toString())
+                    } else {
+                        instrument
+                    }.copy(
+                        pending = true,
+                        applied = false,
+                        meta = instrument.meta.toMutableMap().apply {
+                            put("created_at", System.currentTimeMillis().toString())
+                            put("created_by", devAuth.selfId)
+                            put("hit_count", AtomicInteger())
+                        }
+                    )
+
+                    if (pendingLog.applyImmediately) {
+                        addApplyImmediatelyHandler(pendingLog.id!!, promise)
+                        _addLiveInstrument(devAuth, pendingLog)
+                    } else {
+                        _addLiveInstrument(devAuth, pendingLog).onComplete {
+                            if (it.succeeded()) {
+                                promise.complete(it.result())
+                            } else {
+                                promise.fail(it.cause())
+                            }
+                        }
+                    }
+                }
+                is LiveMeter -> {
+                    val pendingMeter = if (instrument.id == null) {
+                        instrument.copy(id = UUID.randomUUID().toString())
+                    } else {
+                        instrument
+                    }.copy(
+                        pending = true,
+                        applied = false,
+                        meta = instrument.meta.toMutableMap().apply {
+                            put("created_at", System.currentTimeMillis().toString())
+                            put("created_by", devAuth.selfId)
+                        }
+                    )
+
+                    setupLiveMeter(pendingMeter).onComplete {
+                        if (it.succeeded()) {
+                            if (pendingMeter.applyImmediately) {
+                                addApplyImmediatelyHandler(pendingMeter.id!!, promise)
+                                _addLiveInstrument(devAuth, pendingMeter)
+                            } else {
+                                _addLiveInstrument(devAuth, pendingMeter).onComplete {
+                                    if (it.succeeded()) {
+                                        promise.complete(it.result())
+                                    } else {
+                                        promise.fail(it.cause())
+                                    }
+                                }
+                            }
+                        } else {
+                            promise.fail(it.cause())
+                        }
+                    }
+                }
+                is LiveSpan -> {
+                    val pendingSpan = if (instrument.id == null) {
+                        instrument.copy(id = UUID.randomUUID().toString())
+                    } else {
+                        instrument
+                    }.copy(
+                        pending = true,
+                        applied = false,
+                        meta = instrument.meta.toMutableMap().apply {
+                            put("created_at", System.currentTimeMillis().toString())
+                            put("created_by", devAuth.selfId)
+                        }
+                    )
+
+                    if (pendingSpan.applyImmediately) {
+                        addApplyImmediatelyHandler(pendingSpan.id!!, promise)
+                        _addLiveInstrument(devAuth, pendingSpan)
+                    } else {
+                        _addLiveInstrument(devAuth, pendingSpan).onComplete {
+                            if (it.succeeded()) {
+                                promise.complete(it.result())
+                            } else {
+                                promise.fail(it.cause())
+                            }
+                        }
+                    }
+                }
+                else -> {
+                    promise.fail(IllegalArgumentException("Unknown live instrument type"))
+                }
             }
+            return promise.future()
+        } catch (throwable: Throwable) {
+            log.warn("Add live instrument failed", throwable)
+            return Future.failedFuture(throwable)
         }
     }
 
-    override fun addLiveInstruments(batch: LiveInstrumentBatch, handler: Handler<AsyncResult<List<LiveInstrument>>>) {
-        val devAuth = DeveloperAuth.from(handler)
+    override fun addLiveInstruments(batch: LiveInstrumentBatch): Future<List<LiveInstrument>> {
+        val devAuth = Vertx.currentContext().get<DeveloperAuth>("developer")
         log.info(
             "Received add live instrument batch request. Developer: {} - Location(s): {}",
             devAuth, batch.instruments.map { it.location.let { it.source + ":" + it.line } }
         )
 
-        GlobalScope.launch(vertx.dispatcher()) {
-            try {
-                val results = mutableListOf<LiveInstrument>()
-                batch.instruments.forEach {
-                    val promise = Promise.promise<LiveInstrument>()
-                    addLiveInstrument(devAuth, it, promise)
-                    results.add(promise.future().await())
-                }
-                handler.handle(Future.succeededFuture(results))
-            } catch (throwable: Throwable) {
-                log.warn("Add live instruments failed", throwable)
-                handler.handle(Future.failedFuture(throwable))
+        val results = mutableListOf<Future<*>>()
+        batch.instruments.forEach {
+            results.add(addLiveInstrument(devAuth, it))
+        }
+
+        val promise = Promise.promise<List<LiveInstrument>>()
+        CompositeFuture.all(results).onComplete {
+            if (it.succeeded()) {
+                promise.complete(it.result().list())
+            } else {
+                promise.fail(it.cause())
             }
         }
+        return promise.future()
     }
 
-    override fun getLiveInstruments(handler: Handler<AsyncResult<List<LiveInstrument>>>) {
-        val devAuth = DeveloperAuth.from(handler)
+    override fun getLiveInstruments(): Future<List<LiveInstrument>> {
+        val devAuth = Vertx.currentContext().get<DeveloperAuth>("developer")
         log.info("Received get live instruments request. Developer: {}", devAuth)
 
-        handler.handle(Future.succeededFuture(getLiveInstruments()))
+        return Future.succeededFuture(_getLiveInstruments())
     }
 
-    override fun removeLiveInstrument(id: String, handler: Handler<AsyncResult<LiveInstrument?>>) {
-        val devAuth = DeveloperAuth.from(handler)
+    override fun removeLiveInstrument(id: String): Future<LiveInstrument?> {
+        val devAuth = Vertx.currentContext().get<DeveloperAuth>("developer")
         log.info("Received remove live instrument request. Developer: {} - Id: {}", devAuth, id)
 
-        GlobalScope.launch(vertx.dispatcher()) {
-            try {
-                handler.handle(removeLiveInstrument(devAuth, id))
-            } catch (throwable: Throwable) {
-                log.warn("Remove live instrument failed", throwable)
-                handler.handle(Future.failedFuture(throwable))
-            }
-        }
+        return removeLiveInstrument(devAuth, id)
     }
 
-    override fun removeLiveInstruments(
-        location: LiveSourceLocation, handler: Handler<AsyncResult<List<LiveInstrument>>>
-    ) {
-        val devAuth = DeveloperAuth.from(handler)
+    override fun removeLiveInstruments(location: LiveSourceLocation): Future<List<LiveInstrument>> {
+        val devAuth = Vertx.currentContext().get<DeveloperAuth>("developer")
         log.info("Received remove live instruments request. Developer: {} - Location: {}", devAuth, location)
 
-        GlobalScope.launch(vertx.dispatcher()) {
-            try {
-                val breakpointsResult = removeInstruments(devAuth, location, LiveInstrumentType.BREAKPOINT)
-                val logsResult = removeInstruments(devAuth, location, LiveInstrumentType.LOG)
-                val metersResult = removeInstruments(devAuth, location, LiveInstrumentType.METER)
-                val spansResult = removeInstruments(devAuth, location, LiveInstrumentType.SPAN)
+        try {
+            val breakpointsResult = removeInstruments(devAuth, location, LiveInstrumentType.BREAKPOINT)
+            val logsResult = removeInstruments(devAuth, location, LiveInstrumentType.LOG)
+            val metersResult = removeInstruments(devAuth, location, LiveInstrumentType.METER)
+            val spansResult = removeInstruments(devAuth, location, LiveInstrumentType.SPAN)
 
-                when {
-                    breakpointsResult.failed() -> handler.handle(Future.failedFuture(breakpointsResult.cause()))
-                    logsResult.failed() -> handler.handle(Future.failedFuture(logsResult.cause()))
-                    metersResult.failed() -> handler.handle(Future.failedFuture(metersResult.cause()))
-                    spansResult.failed() -> handler.handle(Future.failedFuture(spansResult.cause()))
-                    else -> handler.handle(
-                        Future.succeededFuture(
-                            breakpointsResult.result() + logsResult.result()
-                                    + metersResult.result() + spansResult.result()
-                        )
-                    )
+            val promise = Promise.promise<List<LiveInstrument>>()
+            CompositeFuture.all(breakpointsResult, logsResult, metersResult, spansResult).onComplete {
+                if (it.succeeded()) {
+                    promise.complete(it.result().list())
+                } else {
+                    promise.fail(it.cause())
                 }
-            } catch (throwable: Throwable) {
-                log.warn("Remove live instruments failed", throwable)
-                handler.handle(Future.failedFuture(throwable))
             }
+            return promise.future()
+        } catch (throwable: Throwable) {
+            log.warn("Remove live instruments failed", throwable)
+            return Future.failedFuture(throwable)
         }
     }
 
-    override fun getLiveInstrumentById(id: String, handler: Handler<AsyncResult<LiveInstrument?>>) {
-        val devAuth = DeveloperAuth.from(handler)
+    override fun getLiveInstrumentById(id: String): Future<LiveInstrument?> {
+        val devAuth = Vertx.currentContext().get<DeveloperAuth>("developer")
         log.info("Received get live instrument by id request. Developer: {} - Id: {}", devAuth, id)
 
-        handler.handle(Future.succeededFuture(getLiveInstrumentById(id)))
+        return Future.succeededFuture(_getLiveInstrumentById(id))
     }
 
-    override fun getLiveInstrumentsByIds(ids: List<String>, handler: Handler<AsyncResult<List<LiveInstrument>>>) {
-        val devAuth = DeveloperAuth.from(handler)
+    override fun getLiveInstrumentsByIds(ids: List<String>): Future<List<LiveInstrument>> {
+        val devAuth = Vertx.currentContext().get<DeveloperAuth>("developer")
         log.info("Received get live instruments by ids request. Developer: {} - Ids: {}", devAuth, ids)
 
-        handler.handle(Future.succeededFuture(getLiveInstrumentsByIds(ids)))
+        return Future.succeededFuture(_getLiveInstrumentsByIds(ids))
     }
 
-    override fun getLiveBreakpoints(handler: Handler<AsyncResult<List<LiveBreakpoint>>>) {
-        val devAuth = DeveloperAuth.from(handler)
+    override fun getLiveBreakpoints(): Future<List<LiveBreakpoint>> {
+        val devAuth = Vertx.currentContext().get<DeveloperAuth>("developer")
         log.info("Received get live breakpoints request. Developer: {}", devAuth)
 
-        handler.handle(Future.succeededFuture(getActiveLiveBreakpoints()))
+        return Future.succeededFuture(getActiveLiveBreakpoints())
     }
 
-    override fun getLiveLogs(handler: Handler<AsyncResult<List<LiveLog>>>) {
-        val devAuth = DeveloperAuth.from(handler)
+    override fun getLiveLogs(): Future<List<LiveLog>> {
+        val devAuth = Vertx.currentContext().get<DeveloperAuth>("developer")
         log.info("Received get live logs request. Developer: {}", devAuth)
 
-        handler.handle(Future.succeededFuture(getActiveLiveLogs()))
+        return Future.succeededFuture(getActiveLiveLogs())
     }
 
-    override fun getLiveMeters(handler: Handler<AsyncResult<List<LiveMeter>>>) {
-        val devAuth = DeveloperAuth.from(handler)
+    override fun getLiveMeters(): Future<List<LiveMeter>> {
+        val devAuth = Vertx.currentContext().get<DeveloperAuth>("developer")
         log.info("Received get live meters request. Developer: {}", devAuth)
 
-        handler.handle(Future.succeededFuture(getActiveLiveMeters()))
+        return Future.succeededFuture(getActiveLiveMeters())
     }
 
-    override fun getLiveSpans(handler: Handler<AsyncResult<List<LiveSpan>>>) {
-        val devAuth = DeveloperAuth.from(handler)
+    override fun getLiveSpans(): Future<List<LiveSpan>> {
+        val devAuth = Vertx.currentContext().get<DeveloperAuth>("developer")
         log.info("Received get live spans request. Developer: {}", devAuth)
 
-        handler.handle(Future.succeededFuture(getActiveLiveSpans()))
+        return Future.succeededFuture(getActiveLiveSpans())
     }
 
-    override fun clearAllLiveInstruments(handler: Handler<AsyncResult<Boolean>>) {
-        val devAuth = DeveloperAuth.from(handler)
+    override fun clearAllLiveInstruments(): Future<Boolean> {
+        val devAuth = Vertx.currentContext().get<DeveloperAuth>("developer")
         log.info("Received clear live instruments request. Developer: {}", devAuth)
 
-        handler.handle(clearAllLiveInstruments(devAuth))
+        return clearAllLiveInstruments(devAuth)
     }
 
-    override fun clearLiveInstruments(handler: Handler<AsyncResult<Boolean>>) {
-        val devAuth = DeveloperAuth.from(handler)
+    override fun clearLiveInstruments(): Future<Boolean> {
+        val devAuth = Vertx.currentContext().get<DeveloperAuth>("developer")
         log.info("Received clear live instruments request. Developer: {}", devAuth.selfId)
 
-        GlobalScope.launch(vertx.dispatcher()) {
-            try {
-                clearLiveInstruments(devAuth, null, handler)
-            } catch (throwable: Throwable) {
-                log.warn("Clear live instruments failed", throwable)
-                handler.handle(Future.failedFuture(throwable))
-            }
-        }
+        return clearLiveInstruments(devAuth, null)
     }
 
-    override fun clearLiveBreakpoints(handler: Handler<AsyncResult<Boolean>>) {
-        val devAuth = DeveloperAuth.from(handler)
+    override fun clearLiveBreakpoints(): Future<Boolean> {
+        val devAuth = Vertx.currentContext().get<DeveloperAuth>("developer")
         log.info("Received clear live breakpoints request. Developer: {}", devAuth)
 
-        clearLiveInstruments(devAuth, LiveInstrumentType.BREAKPOINT, handler)
+        return clearLiveInstruments(devAuth, LiveInstrumentType.BREAKPOINT)
     }
 
-    override fun clearLiveLogs(handler: Handler<AsyncResult<Boolean>>) {
-        val devAuth = DeveloperAuth.from(handler)
+    override fun clearLiveLogs(): Future<Boolean> {
+        val devAuth = Vertx.currentContext().get<DeveloperAuth>("developer")
         log.info("Received clear live logs request. Developer: {}", devAuth)
 
-        clearLiveInstruments(devAuth, LiveInstrumentType.LOG, handler)
+        return clearLiveInstruments(devAuth, LiveInstrumentType.LOG)
     }
 
-    override fun clearLiveMeters(handler: Handler<AsyncResult<Boolean>>) {
-        val devAuth = DeveloperAuth.from(handler)
+    override fun clearLiveMeters(): Future<Boolean> {
+        val devAuth = Vertx.currentContext().get<DeveloperAuth>("developer")
         log.info("Received clear live meters request. Developer: {}", devAuth)
 
-        clearLiveInstruments(devAuth, LiveInstrumentType.METER, handler)
+        return clearLiveInstruments(devAuth, LiveInstrumentType.METER)
     }
 
-    override fun clearLiveSpans(handler: Handler<AsyncResult<Boolean>>) {
-        val devAuth = DeveloperAuth.from(handler)
+    override fun clearLiveSpans(): Future<Boolean> {
+        val devAuth = Vertx.currentContext().get<DeveloperAuth>("developer")
         log.info("Received clear live spans request. Developer: {}", devAuth)
 
-        clearLiveInstruments(devAuth, LiveInstrumentType.SPAN, handler)
-    }
-
-    private suspend fun setupLiveMeter(liveMeter: LiveMeter) {
-        log.info("Setting up live meter: $liveMeter")
-
-        val async = Promise.promise<JsonObject>()
-        setupLiveMeter(liveMeter, async)
-        async.future().await()
+        return clearLiveInstruments(devAuth, LiveInstrumentType.SPAN)
     }
 
     private val liveInstruments = Collections.newSetFromMap(ConcurrentHashMap<DeveloperInstrument, Boolean>())
@@ -588,7 +584,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
         }
     }
 
-    fun getLiveInstruments(): List<LiveInstrument> {
+    fun _getLiveInstruments(): List<LiveInstrument> {
         return liveInstruments.map { it.instrument }.toList()
     }
 
@@ -608,9 +604,9 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
         return liveInstruments.map { it.instrument }.filterIsInstance(LiveSpan::class.java).filter { !it.pending }
     }
 
-    fun addLiveInstrument(
+    fun _addLiveInstrument(
         devAuth: DeveloperAuth, liveInstrument: LiveInstrument, alertSubscribers: Boolean = true
-    ): AsyncResult<LiveInstrument> {
+    ): Future<LiveInstrument> {
         log.debug("Adding live instrument: $liveInstrument")
         val debuggerCommand = LiveInstrumentCommand(
             LiveInstrumentCommand.CommandType.ADD_LIVE_INSTRUMENT, LiveInstrumentContext()
@@ -699,12 +695,12 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
         }
     }
 
-    fun getLiveInstrumentById(id: String): LiveInstrument? {
+    fun _getLiveInstrumentById(id: String): LiveInstrument? {
         return liveInstruments.find { it.instrument.id == id }?.instrument
     }
 
-    fun getLiveInstrumentsByIds(ids: List<String>): List<LiveInstrument> {
-        return ids.mapNotNull { getLiveInstrumentById(it) }
+    fun _getLiveInstrumentsByIds(ids: List<String>): List<LiveInstrument> {
+        return ids.mapNotNull { _getLiveInstrumentById(it) }
     }
 
     private fun removeLiveInstrument(
@@ -769,7 +765,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
         }
     }
 
-    fun removeLiveInstrument(developerAuth: DeveloperAuth, instrumentId: String): AsyncResult<LiveInstrument?> {
+    fun removeLiveInstrument(developerAuth: DeveloperAuth, instrumentId: String): Future<LiveInstrument?> {
         if (log.isTraceEnabled) log.trace("Removing live instrument: $instrumentId")
         val instrumentRemoval = liveInstruments.find { it.instrument.id == instrumentId }
         return if (instrumentRemoval != null) {
@@ -781,7 +777,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
 
     fun removeLiveInstrument(
         devAuth: DeveloperAuth, instrumentRemoval: DeveloperInstrument
-    ): AsyncResult<LiveInstrument?> {
+    ): Future<LiveInstrument?> {
         if (instrumentRemoval.instrument.id == null) {
             //unpublished instrument; just remove from platform
             liveInstruments.remove(instrumentRemoval)
@@ -795,7 +791,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
 
     fun removeInstruments(
         devAuth: DeveloperAuth, location: LiveSourceLocation, instrumentType: LiveInstrumentType
-    ): AsyncResult<List<LiveInstrument>> {
+    ): Future<List<LiveInstrument>> {
         log.debug("Removing live instrument(s): $location")
         val debuggerCommand = LiveInstrumentCommand(
             LiveInstrumentCommand.CommandType.REMOVE_LIVE_INSTRUMENT,
@@ -834,8 +830,8 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
     }
 
     //todo: impl probe clear command
-    private fun clearAllLiveInstruments(devAuth: DeveloperAuth): AsyncResult<Boolean> {
-        val allLiveInstruments = getLiveInstruments()
+    private fun clearAllLiveInstruments(devAuth: DeveloperAuth): Future<Boolean> {
+        val allLiveInstruments = _getLiveInstruments()
         allLiveInstruments.forEach {
             removeLiveInstrument(devAuth, it.id!!)
         }
@@ -843,19 +839,17 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
     }
 
     //todo: impl probe clear command
-    private fun clearLiveInstruments(
-        devAuth: DeveloperAuth, type: LiveInstrumentType?, handler: Handler<AsyncResult<Boolean>>
-    ) {
+    private fun clearLiveInstruments(devAuth: DeveloperAuth, type: LiveInstrumentType?): Future<Boolean> {
         val devInstruments = liveInstruments.filter {
             it.developerAuth == devAuth && (type == null || it.instrument.type == type)
         }
         devInstruments.forEach {
             removeLiveInstrument(devAuth, it.instrument.id!!)
         }
-        handler.handle(Future.succeededFuture(true))
+        return Future.succeededFuture(true)
     }
 
-    override fun setupLiveMeter(liveMeter: LiveMeter, handler: Handler<AsyncResult<JsonObject>>) {
+    override fun setupLiveMeter(liveMeter: LiveMeter): Future<JsonObject> {
         val meterConfig = MeterConfig()
         when (liveMeter.meterType) {
             MeterType.COUNT -> {
@@ -893,22 +887,20 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
             else -> throw UnsupportedOperationException("Unsupported meter type: ${liveMeter.meterType}")
         }
         meterProcessService.converts().add(MetricConvert(meterConfig, meterSystem))
-        handler.handle(Future.succeededFuture(JsonObject()))
+        return Future.succeededFuture(JsonObject())
     }
 
     override fun getLiveMeterMetrics(
         liveMeter: LiveMeter,
         start: Instant,
         stop: Instant,
-        step: DurationStep,
-        handler: Handler<AsyncResult<JsonObject>>
-    ) {
+        step: DurationStep
+    ): Future<JsonObject> {
         log.debug("Getting live meter metrics. Metric id: {}", liveMeter.toMetricId())
         val services = metadata.getAllServices(liveMeter.location.service ?: "")
         if (services.isEmpty()) {
             log.info("No services found")
-            handler.handle(Future.succeededFuture(JsonObject().put("values", JsonArray())))
-            return
+            return Future.succeededFuture(JsonObject().put("values", JsonArray()))
         }
 
         val values = mutableListOf<Any>()
@@ -969,7 +961,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
                 }
             }
         }
-        handler.handle(Future.succeededFuture(JsonObject().put("values", JsonArray(values))))
+        return Future.succeededFuture(JsonObject().put("values", JsonArray(values)))
     }
 
     private fun fromEventBusException(exception: String): Exception {

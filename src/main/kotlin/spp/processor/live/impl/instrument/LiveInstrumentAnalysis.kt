@@ -216,7 +216,7 @@ class LiveInstrumentAnalysis : AnalysisListenerFactory, LogAnalysisListenerFacto
 
         private fun handleLogHit(logHit: LiveLogHit) {
             if (log.isTraceEnabled) log.trace("Live log hit: {}", logHit)
-            val instrument = liveInstrumentProcessor.getLiveInstrumentById(logHit.logId)
+            val instrument = liveInstrumentProcessor._getLiveInstrumentById(logHit.logId)
             if (instrument != null) {
                 val instrumentMeta = instrument.meta as MutableMap<String, Any>
                 if ((instrumentMeta["hit_count"] as AtomicInteger?)?.incrementAndGet() == 1) {
@@ -336,7 +336,7 @@ class LiveInstrumentAnalysis : AnalysisListenerFactory, LogAnalysisListenerFacto
 
         private fun handleBreakpointHit(bpHit: LiveBreakpointHit) {
             if (log.isTraceEnabled) log.trace("Live breakpoint hit: {}", bpHit)
-            val instrument = liveInstrumentProcessor.getLiveInstrumentById(bpHit.breakpointId)
+            val instrument = liveInstrumentProcessor._getLiveInstrumentById(bpHit.breakpointId)
             if (instrument != null) {
                 val instrumentMeta = instrument.meta as MutableMap<String, Any>
                 if ((instrumentMeta["hit_count"] as AtomicInteger?)?.incrementAndGet() == 1) {

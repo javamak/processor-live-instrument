@@ -187,7 +187,7 @@ class InstrumentIntegrationTest : ProcessorIntegrationTest() {
                     id = instrumentId,
                     location = LiveSourceLocation("E2EApp", 24)
                 )
-            ) {
+            ).onComplete {
                 if (it.failed()) {
                     testContext.failNow(it.cause())
                 }

@@ -160,6 +160,7 @@ object InstrumentProcessor : FeedbackProcessor() {
         vertx.deployVerticle(liveInstrumentProcessor).await()
 
         ServiceBinder(vertx).setIncludeDebugInfo(true)
+            .addInterceptor { developerAuthInterceptor(it) }
             .addInterceptor { msg -> permissionAndAccessCheckInterceptor(msg) }
             .setAddress(SourceMarkerServices.Utilize.LIVE_INSTRUMENT)
             .register(LiveInstrumentService::class.java, liveInstrumentProcessor)
