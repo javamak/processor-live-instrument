@@ -86,42 +86,12 @@ object InstrumentProcessor : FeedbackProcessor() {
         )
         FrameHelper.sendFrame(
             BridgeEventType.REGISTER.name.lowercase(),
-            PlatformAddress.LIVE_BREAKPOINT_APPLIED.address,
+            PlatformAddress.LIVE_INSTRUMENT_APPLIED.address,
             JsonObject(), tcpSocket
         )
         FrameHelper.sendFrame(
             BridgeEventType.REGISTER.name.lowercase(),
-            PlatformAddress.LIVE_BREAKPOINT_REMOVED.address,
-            JsonObject(), tcpSocket
-        )
-        FrameHelper.sendFrame(
-            BridgeEventType.REGISTER.name.lowercase(),
-            PlatformAddress.LIVE_LOG_APPLIED.address,
-            JsonObject(), tcpSocket
-        )
-        FrameHelper.sendFrame(
-            BridgeEventType.REGISTER.name.lowercase(),
-            PlatformAddress.LIVE_LOG_REMOVED.address,
-            JsonObject(), tcpSocket
-        )
-        FrameHelper.sendFrame(
-            BridgeEventType.REGISTER.name.lowercase(),
-            PlatformAddress.LIVE_METER_APPLIED.address,
-            JsonObject(), tcpSocket
-        )
-        FrameHelper.sendFrame(
-            BridgeEventType.REGISTER.name.lowercase(),
-            PlatformAddress.LIVE_METER_REMOVED.address,
-            JsonObject(), tcpSocket
-        )
-        FrameHelper.sendFrame(
-            BridgeEventType.REGISTER.name.lowercase(),
-            PlatformAddress.LIVE_SPAN_APPLIED.address,
-            JsonObject(), tcpSocket
-        )
-        FrameHelper.sendFrame(
-            BridgeEventType.REGISTER.name.lowercase(),
-            PlatformAddress.LIVE_SPAN_REMOVED.address,
+            PlatformAddress.LIVE_INSTRUMENT_REMOVED.address,
             JsonObject(), tcpSocket
         )
 

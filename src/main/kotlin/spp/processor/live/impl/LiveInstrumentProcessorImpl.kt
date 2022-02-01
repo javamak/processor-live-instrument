@@ -155,10 +155,13 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
             }
         }
 
-        listenForLiveBreakpoints()
-        listenForLiveLogs()
-        listenForLiveMeters()
-        listenForLiveSpans()
+        //listen for instruments applied/removed
+        vertx.eventBus().localConsumer<JsonObject>("local." + PlatformAddress.LIVE_INSTRUMENT_APPLIED.address) {
+            handleLiveInstrumentApplied(it)
+        }
+        vertx.eventBus().localConsumer<JsonObject>("local." + PlatformAddress.LIVE_INSTRUMENT_REMOVED.address) {
+            handleInstrumentRemoved(it)
+        }
     }
 
     override fun addLiveInstrument(instrument: LiveInstrument): Future<LiveInstrument> {
@@ -417,58 +420,16 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
     private val liveInstruments = Collections.newSetFromMap(ConcurrentHashMap<DeveloperInstrument, Boolean>())
     private val waitingApply = ConcurrentHashMap<String, Handler<AsyncResult<DeveloperInstrument>>>()
 
-    private fun listenForLiveBreakpoints() {
-        vertx.eventBus().localConsumer<JsonObject>("local." + PlatformAddress.LIVE_BREAKPOINT_APPLIED.address) {
-            handleLiveInstrumentApplied(LiveBreakpoint::class.java, it)
-        }
-        vertx.eventBus().localConsumer<JsonObject>("local." + PlatformAddress.LIVE_BREAKPOINT_REMOVED.address) {
-            handleInstrumentRemoved(it)
-        }
-    }
-
-    private fun listenForLiveLogs() {
-        vertx.eventBus().localConsumer<JsonObject>("local." + PlatformAddress.LIVE_LOG_APPLIED.address) {
-            handleLiveInstrumentApplied(LiveLog::class.java, it)
-        }
-        vertx.eventBus().localConsumer<JsonObject>("local." + PlatformAddress.LIVE_LOG_REMOVED.address) {
-            handleInstrumentRemoved(it)
-        }
-    }
-
-    private fun listenForLiveMeters() {
-        vertx.eventBus().localConsumer<JsonObject>("local." + PlatformAddress.LIVE_METER_APPLIED.address) {
-            handleLiveInstrumentApplied(LiveMeter::class.java, it)
-        }
-        vertx.eventBus().localConsumer<JsonObject>("local." + PlatformAddress.LIVE_METER_REMOVED.address) {
-            handleInstrumentRemoved(it)
-        }
-    }
-
-    private fun listenForLiveSpans() {
-        vertx.eventBus().localConsumer<JsonObject>("local." + PlatformAddress.LIVE_SPAN_APPLIED.address) {
-            handleLiveInstrumentApplied(LiveSpan::class.java, it)
-        }
-        vertx.eventBus().localConsumer<JsonObject>("local." + PlatformAddress.LIVE_SPAN_REMOVED.address) {
-            handleInstrumentRemoved(it)
-        }
-    }
-
     private fun handleInstrumentRemoved(it: Message<JsonObject>) {
         if (log.isTraceEnabled) log.trace("Got live instrument removed: {}", it.body())
         val instrumentCommand = it.body().getString("command")
         val instrumentData = if (instrumentCommand != null) {
             val command = ProtocolMarshaller.deserializeLiveInstrumentCommand(JsonObject(instrumentCommand))
             JsonObject.mapFrom(command.context.instruments.first()) //todo: check for multiple
-        } else if (it.body().containsKey("breakpoint")) {
-            JsonObject(it.body().getString("breakpoint"))
-        } else if (it.body().containsKey("log")) {
-            JsonObject(it.body().getString("log"))
-        } else if (it.body().containsKey("meter")) {
-            JsonObject(it.body().getString("meter"))
-        } else if (it.body().containsKey("span")) {
-            JsonObject(it.body().getString("span"))
+        } else if (it.body().containsKey("instrument")) {
+            JsonObject(it.body().getString("instrument"))
         } else {
-            throw IllegalArgumentException("Unknown instrument type")
+            throw IllegalArgumentException("Unknown instrument removed message: $it")
         }
 
         val instrumentRemoval = liveInstruments.find { find -> find.instrument.id == instrumentData.getString("id") }
@@ -483,36 +444,36 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
         }
     }
 
-    private fun <T : LiveInstrument> handleLiveInstrumentApplied(clazz: Class<T>, it: Message<JsonObject>) {
-        val liveInstrument = Json.decodeValue(it.body().toString(), clazz)
+    private fun handleLiveInstrumentApplied(it: Message<JsonObject>) {
+        val liveInstrument = ProtocolMarshaller.deserializeLiveInstrument(it.body())
         liveInstruments.forEach {
             if (it.instrument.id == liveInstrument.id) {
                 log.info("Live instrument applied. Id: {}", it.instrument.id)
                 val eventType: LiveInstrumentEventType
                 val appliedInstrument: LiveInstrument
-                when (clazz) {
-                    LiveBreakpoint::class.java -> {
+                when (liveInstrument.type) {
+                    LiveInstrumentType.BREAKPOINT -> {
                         eventType = LiveInstrumentEventType.BREAKPOINT_APPLIED
                         appliedInstrument = (it.instrument as LiveBreakpoint).copy(
                             applied = true,
                             pending = false
                         )
                     }
-                    LiveLog::class.java -> {
+                    LiveInstrumentType.LOG -> {
                         eventType = LiveInstrumentEventType.LOG_APPLIED
                         appliedInstrument = (it.instrument as LiveLog).copy(
                             applied = true,
                             pending = false
                         )
                     }
-                    LiveMeter::class.java -> {
+                    LiveInstrumentType.METER -> {
                         eventType = LiveInstrumentEventType.METER_APPLIED
                         appliedInstrument = (it.instrument as LiveMeter).copy(
                             applied = true,
                             pending = false
                         )
                     }
-                    LiveSpan::class.java -> {
+                    LiveInstrumentType.SPAN -> {
                         eventType = LiveInstrumentEventType.SPAN_APPLIED
                         appliedInstrument = (it.instrument as LiveSpan).copy(
                             applied = true,
