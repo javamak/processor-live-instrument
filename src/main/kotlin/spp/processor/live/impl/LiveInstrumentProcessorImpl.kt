@@ -69,7 +69,7 @@ import spp.protocol.instrument.meter.event.LiveMeterRemoved
 import spp.protocol.instrument.span.LiveSpan
 import spp.protocol.instrument.span.event.LiveSpanRemoved
 import spp.protocol.platform.PlatformAddress
-import spp.protocol.platform.client.ActiveProbe
+import spp.protocol.status.ActiveProbe
 import spp.protocol.probe.ProbeAddress
 import spp.protocol.probe.ProbeAddress.*
 import spp.protocol.probe.command.LiveInstrumentCommand
