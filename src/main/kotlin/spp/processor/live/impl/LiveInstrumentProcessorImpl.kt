@@ -72,6 +72,7 @@ import spp.protocol.platform.PlatformAddress
 import spp.protocol.status.ActiveProbe
 import spp.protocol.probe.ProbeAddress
 import spp.protocol.probe.ProbeAddress.*
+import spp.protocol.probe.command.CommandType
 import spp.protocol.probe.command.LiveInstrumentCommand
 import spp.protocol.probe.command.LiveInstrumentContext
 import spp.protocol.service.error.LiveInstrumentException
@@ -493,7 +494,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
         val instrumentCommand = it.body().getString("command")
         val instrumentData = if (instrumentCommand != null) {
             val command = Json.decodeValue(instrumentCommand, LiveInstrumentCommand::class.java)
-            JsonObject(command.context.liveInstruments[0]) //todo: check for multiple
+            JsonObject.mapFrom(command.context.instruments.first()) //todo: check for multiple
         } else if (it.body().containsKey("breakpoint")) {
             JsonObject(it.body().getString("breakpoint"))
         } else if (it.body().containsKey("log")) {
@@ -609,9 +610,8 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
     ): Future<LiveInstrument> {
         log.debug("Adding live instrument: $liveInstrument")
         val debuggerCommand = LiveInstrumentCommand(
-            LiveInstrumentCommand.CommandType.ADD_LIVE_INSTRUMENT, LiveInstrumentContext()
+            CommandType.ADD_LIVE_INSTRUMENT, LiveInstrumentContext(setOf(liveInstrument))
         )
-        debuggerCommand.context.addLiveInstrument(liveInstrument)
 
         val probeAddress = when (liveInstrument.type) {
             LiveInstrumentType.BREAKPOINT -> LIVE_BREAKPOINT_REMOTE
@@ -717,9 +717,8 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
             LiveInstrumentType.SPAN -> LIVE_SPAN_REMOTE
         }
         val debuggerCommand = LiveInstrumentCommand(
-            LiveInstrumentCommand.CommandType.REMOVE_LIVE_INSTRUMENT, LiveInstrumentContext()
+            CommandType.REMOVE_LIVE_INSTRUMENT, LiveInstrumentContext(setOf(liveInstrument))
         )
-        debuggerCommand.context.addLiveInstrument(liveInstrument)
         dispatchCommand(devAuth.accessToken, probeAddress, liveInstrument.location, debuggerCommand)
 
         val jvmCause = if (cause == null) null else LiveStackTrace.fromString(cause)
@@ -794,10 +793,8 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
     ): Future<List<LiveInstrument>> {
         log.debug("Removing live instrument(s): $location")
         val debuggerCommand = LiveInstrumentCommand(
-            LiveInstrumentCommand.CommandType.REMOVE_LIVE_INSTRUMENT,
-            LiveInstrumentContext()
+            CommandType.REMOVE_LIVE_INSTRUMENT, LiveInstrumentContext(locations = setOf(location))
         )
-        debuggerCommand.context.addLocation(location)
 
         val result = liveInstruments.filter {
             it.instrument.location == location && it.instrument.type == instrumentType
