@@ -22,7 +22,7 @@ import io.vertx.core.json.JsonObject
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Test
-import spp.protocol.instrument.LiveVariable
+import spp.protocol.instrument.variable.LiveVariable
 
 class LiveInstrumentAnalysisTest {
 

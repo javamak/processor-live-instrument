@@ -60,6 +60,9 @@ import spp.protocol.SourceMarkerServices
 import spp.protocol.artifact.exception.LiveStackTrace
 import spp.protocol.error.MissingRemoteException
 import spp.protocol.instrument.*
+import spp.protocol.instrument.event.LiveInstrumentEvent
+import spp.protocol.instrument.event.LiveInstrumentEventType
+import spp.protocol.instrument.event.LiveInstrumentRemoved
 import spp.protocol.instrument.meter.MeterType
 import spp.protocol.platform.PlatformAddress
 import spp.protocol.probe.ProbeAddress
