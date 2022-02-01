@@ -328,11 +328,11 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
         return promise.future()
     }
 
-    override fun getLiveInstruments(): Future<List<LiveInstrument>> {
+    override fun getLiveInstruments(type: LiveInstrumentType?): Future<List<LiveInstrument>> {
         val devAuth = Vertx.currentContext().get<DeveloperAuth>("developer")
         log.info("Received get live instruments request. Developer: {}", devAuth)
 
-        return Future.succeededFuture(_getLiveInstruments())
+        return Future.succeededFuture(_getLiveInstruments(type))
     }
 
     override fun removeLiveInstrument(id: String): Future<LiveInstrument?> {
@@ -381,74 +381,37 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
         return Future.succeededFuture(_getLiveInstrumentsByIds(ids))
     }
 
-    override fun getLiveBreakpoints(): Future<List<LiveBreakpoint>> {
+    override fun getLiveInstrumentsByLocation(location: LiveSourceLocation): Future<List<LiveInstrument>> {
         val devAuth = Vertx.currentContext().get<DeveloperAuth>("developer")
-        log.info("Received get live breakpoints request. Developer: {}", devAuth)
+        log.info("Received get live instruments by location request. Developer: {} - Location: {}", devAuth, location)
 
-        return Future.succeededFuture(getActiveLiveBreakpoints())
+        return Future.succeededFuture(_getLiveInstruments(location))
     }
 
-    override fun getLiveLogs(): Future<List<LiveLog>> {
-        val devAuth = Vertx.currentContext().get<DeveloperAuth>("developer")
-        log.info("Received get live logs request. Developer: {}", devAuth)
-
-        return Future.succeededFuture(getActiveLiveLogs())
-    }
-
-    override fun getLiveMeters(): Future<List<LiveMeter>> {
-        val devAuth = Vertx.currentContext().get<DeveloperAuth>("developer")
-        log.info("Received get live meters request. Developer: {}", devAuth)
-
-        return Future.succeededFuture(getActiveLiveMeters())
-    }
-
-    override fun getLiveSpans(): Future<List<LiveSpan>> {
-        val devAuth = Vertx.currentContext().get<DeveloperAuth>("developer")
-        log.info("Received get live spans request. Developer: {}", devAuth)
-
-        return Future.succeededFuture(getActiveLiveSpans())
-    }
-
-    override fun clearAllLiveInstruments(): Future<Boolean> {
+    override fun clearAllLiveInstruments(type: LiveInstrumentType?): Future<Boolean> {
         val devAuth = Vertx.currentContext().get<DeveloperAuth>("developer")
         log.info("Received clear live instruments request. Developer: {}", devAuth)
 
-        return clearAllLiveInstruments(devAuth)
+        //todo: impl probe clear command
+        val allLiveInstruments = _getLiveInstruments(type)
+        allLiveInstruments.forEach {
+            removeLiveInstrument(devAuth, it.id!!)
+        }
+        return Future.succeededFuture(true)
     }
 
-    override fun clearLiveInstruments(): Future<Boolean> {
+    override fun clearLiveInstruments(type: LiveInstrumentType?): Future<Boolean> {
         val devAuth = Vertx.currentContext().get<DeveloperAuth>("developer")
         log.info("Received clear live instruments request. Developer: {}", devAuth.selfId)
 
-        return clearLiveInstruments(devAuth, null)
-    }
-
-    override fun clearLiveBreakpoints(): Future<Boolean> {
-        val devAuth = Vertx.currentContext().get<DeveloperAuth>("developer")
-        log.info("Received clear live breakpoints request. Developer: {}", devAuth)
-
-        return clearLiveInstruments(devAuth, LiveInstrumentType.BREAKPOINT)
-    }
-
-    override fun clearLiveLogs(): Future<Boolean> {
-        val devAuth = Vertx.currentContext().get<DeveloperAuth>("developer")
-        log.info("Received clear live logs request. Developer: {}", devAuth)
-
-        return clearLiveInstruments(devAuth, LiveInstrumentType.LOG)
-    }
-
-    override fun clearLiveMeters(): Future<Boolean> {
-        val devAuth = Vertx.currentContext().get<DeveloperAuth>("developer")
-        log.info("Received clear live meters request. Developer: {}", devAuth)
-
-        return clearLiveInstruments(devAuth, LiveInstrumentType.METER)
-    }
-
-    override fun clearLiveSpans(): Future<Boolean> {
-        val devAuth = Vertx.currentContext().get<DeveloperAuth>("developer")
-        log.info("Received clear live spans request. Developer: {}", devAuth)
-
-        return clearLiveInstruments(devAuth, LiveInstrumentType.SPAN)
+        //todo: impl probe clear command
+        val devInstruments = liveInstruments.filter {
+            it.developerAuth == devAuth && (type == null || it.instrument.type == type)
+        }
+        devInstruments.forEach {
+            removeLiveInstrument(devAuth, it.instrument.id!!)
+        }
+        return Future.succeededFuture(true)
     }
 
     private val liveInstruments = Collections.newSetFromMap(ConcurrentHashMap<DeveloperInstrument, Boolean>())
@@ -586,24 +549,12 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
         }
     }
 
-    fun _getLiveInstruments(): List<LiveInstrument> {
-        return liveInstruments.map { it.instrument }.toList()
+    fun _getLiveInstruments(type: LiveInstrumentType? = null): List<LiveInstrument> {
+        return liveInstruments.filter { type == null || it.instrument.type == type }.map { it.instrument }.toList()
     }
 
-    fun getActiveLiveBreakpoints(): List<LiveBreakpoint> {
-        return liveInstruments.map { it.instrument }.filterIsInstance(LiveBreakpoint::class.java).filter { !it.pending }
-    }
-
-    fun getActiveLiveLogs(): List<LiveLog> {
-        return liveInstruments.map { it.instrument }.filterIsInstance(LiveLog::class.java).filter { !it.pending }
-    }
-
-    fun getActiveLiveMeters(): List<LiveMeter> {
-        return liveInstruments.map { it.instrument }.filterIsInstance(LiveMeter::class.java).filter { !it.pending }
-    }
-
-    fun getActiveLiveSpans(): List<LiveSpan> {
-        return liveInstruments.map { it.instrument }.filterIsInstance(LiveSpan::class.java).filter { !it.pending }
+    fun _getLiveInstruments(location: LiveSourceLocation): List<LiveInstrument> {
+        return liveInstruments.filter { it.instrument.location == location }.map { it.instrument }.toList()
     }
 
     fun _addLiveInstrument(
@@ -825,26 +776,6 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
             )
         }
         return Future.succeededFuture(result.filter { it.instrument.type == instrumentType }.map { it.instrument })
-    }
-
-    //todo: impl probe clear command
-    private fun clearAllLiveInstruments(devAuth: DeveloperAuth): Future<Boolean> {
-        val allLiveInstruments = _getLiveInstruments()
-        allLiveInstruments.forEach {
-            removeLiveInstrument(devAuth, it.id!!)
-        }
-        return Future.succeededFuture(true)
-    }
-
-    //todo: impl probe clear command
-    private fun clearLiveInstruments(devAuth: DeveloperAuth, type: LiveInstrumentType?): Future<Boolean> {
-        val devInstruments = liveInstruments.filter {
-            it.developerAuth == devAuth && (type == null || it.instrument.type == type)
-        }
-        devInstruments.forEach {
-            removeLiveInstrument(devAuth, it.instrument.id!!)
-        }
-        return Future.succeededFuture(true)
     }
 
     override fun setupLiveMeter(liveMeter: LiveMeter): Future<JsonObject> {
