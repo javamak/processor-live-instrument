@@ -35,7 +35,7 @@ import org.apache.skywalking.oap.server.library.module.ModuleManager
 import org.slf4j.LoggerFactory
 import spp.processor.InstrumentProcessor.liveInstrumentProcessor
 import spp.processor.common.FeedbackProcessor.Companion.vertx
-import spp.protocol.SourceMarkerServices
+import spp.protocol.SourceServices
 import spp.protocol.artifact.exception.LiveStackTrace
 import spp.protocol.artifact.exception.LiveStackTraceElement
 import spp.protocol.artifact.exception.sourceAsLineNumber
@@ -226,7 +226,7 @@ class LiveInstrumentAnalysis : AnalysisListenerFactory, LogAnalysisListenerFacto
             }
 
             vertx.eventBus().publish(
-                SourceMarkerServices.Provide.LIVE_INSTRUMENT_SUBSCRIBER,
+                SourceServices.Provide.LIVE_INSTRUMENT_SUBSCRIBER,
                 JsonObject.mapFrom(
                     LiveInstrumentEvent(LiveInstrumentEventType.LOG_HIT, JsonObject.mapFrom(logHit).toString())
                 )
@@ -342,7 +342,7 @@ class LiveInstrumentAnalysis : AnalysisListenerFactory, LogAnalysisListenerFacto
             }
 
             vertx.eventBus().publish(
-                SourceMarkerServices.Provide.LIVE_INSTRUMENT_SUBSCRIBER,
+                SourceServices.Provide.LIVE_INSTRUMENT_SUBSCRIBER,
                 JsonObject.mapFrom(LiveInstrumentEvent(LiveInstrumentEventType.BREAKPOINT_HIT, Json.encode(bpHit)))
             )
             if (log.isTraceEnabled) log.trace("Published live breakpoint hit")

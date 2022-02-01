@@ -31,7 +31,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.BeforeAll
 import org.slf4j.LoggerFactory
-import spp.protocol.SourceMarkerServices
+import spp.protocol.SourceServices
 import spp.protocol.extend.TCPServiceFrameParser
 import spp.protocol.platform.PlatformAddress
 import spp.protocol.status.InstanceConnection
@@ -112,7 +112,7 @@ open class ProcessorIntegrationTest {
                     promise.future().await()
                 }
 
-                vertx.eventBus().localConsumer<JsonObject>(SourceMarkerServices.Utilize.LIVE_INSTRUMENT) { resp ->
+                vertx.eventBus().localConsumer<JsonObject>(SourceServices.Utilize.LIVE_INSTRUMENT) { resp ->
                     val forwardAddress = resp.address()
                     val forwardMessage = resp.body()
                     val replyAddress = UUID.randomUUID().toString()
@@ -137,7 +137,7 @@ open class ProcessorIntegrationTest {
                 //register listener
                 FrameHelper.sendFrame(
                     BridgeEventType.REGISTER.name.lowercase(),
-                    SourceMarkerServices.Provide.LIVE_INSTRUMENT_SUBSCRIBER, JsonObject(), tcpSocket
+                    SourceServices.Provide.LIVE_INSTRUMENT_SUBSCRIBER, JsonObject(), tcpSocket
                 )
             }
         }

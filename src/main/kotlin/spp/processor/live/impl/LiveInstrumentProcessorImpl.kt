@@ -56,7 +56,7 @@ import spp.processor.common.DeveloperAuth
 import spp.processor.common.FeedbackProcessor
 import spp.processor.common.SkyWalkingStorage.Companion.METRIC_PREFIX
 import spp.protocol.ProtocolMarshaller
-import spp.protocol.SourceMarkerServices
+import spp.protocol.SourceServices
 import spp.protocol.artifact.exception.LiveStackTrace
 import spp.protocol.error.MissingRemoteException
 import spp.protocol.instrument.*
@@ -71,7 +71,7 @@ import spp.protocol.probe.command.CommandType
 import spp.protocol.probe.command.LiveInstrumentCommand
 import spp.protocol.probe.command.LiveInstrumentContext
 import spp.protocol.service.error.LiveInstrumentException
-import spp.protocol.service.live.LiveInstrumentService
+import spp.protocol.service.LiveInstrumentService
 import spp.protocol.status.ActiveProbe
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
@@ -486,7 +486,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
                 waitingApply.remove(appliedInstrument.id)?.handle(Future.succeededFuture(devInstrument))
 
                 vertx.eventBus().publish(
-                    SourceMarkerServices.Provide.LIVE_INSTRUMENT_SUBSCRIBER,
+                    SourceServices.Provide.LIVE_INSTRUMENT_SUBSCRIBER,
                     JsonObject.mapFrom(LiveInstrumentEvent(eventType, Json.encode(appliedInstrument)))
                 )
                 if (log.isTraceEnabled) log.trace("Published live instrument applied")
@@ -556,7 +556,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
                 LiveInstrumentType.SPAN -> LiveInstrumentEventType.SPAN_ADDED
             }
             vertx.eventBus().publish(
-                SourceMarkerServices.Provide.LIVE_INSTRUMENT_SUBSCRIBER,
+                SourceServices.Provide.LIVE_INSTRUMENT_SUBSCRIBER,
                 JsonObject.mapFrom(LiveInstrumentEvent(eventType, Json.encode(liveInstrument)))
             )
         }
@@ -571,7 +571,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
     ) = GlobalScope.launch(vertx.dispatcher()) {
         val promise = Promise.promise<JsonArray>()
         InstrumentProcessor.requestEvent<JsonArray>(
-            SourceMarkerServices.Utilize.LIVE_SERVICE, JsonObject(),
+            SourceServices.Utilize.LIVE_SERVICE, JsonObject(),
             JsonObject().apply { accessToken?.let { put("auth-token", accessToken) } }.put("action", "getActiveProbes")
         ) {
             if (it.succeeded()) {
@@ -647,7 +647,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
             }
             val eventData = Json.encode(LiveInstrumentRemoved(liveInstrument, occurredAt, jvmCause))
             vertx.eventBus().publish(
-                SourceMarkerServices.Provide.LIVE_INSTRUMENT_SUBSCRIBER,
+                SourceServices.Provide.LIVE_INSTRUMENT_SUBSCRIBER,
                 JsonObject.mapFrom(LiveInstrumentEvent(eventType, eventData))
             )
         }
@@ -714,7 +714,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
                 LiveInstrumentType.SPAN -> LiveInstrumentEventType.SPAN_REMOVED
             }
             vertx.eventBus().publish(
-                SourceMarkerServices.Provide.LIVE_INSTRUMENT_SUBSCRIBER,
+                SourceServices.Provide.LIVE_INSTRUMENT_SUBSCRIBER,
                 JsonObject.mapFrom(LiveInstrumentEvent(eventType, Json.encode(result)))
             )
         }
