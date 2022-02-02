@@ -17,6 +17,7 @@
  */
 package spp.processor.live.impl
 
+import com.google.common.cache.CacheBuilder
 import io.vertx.core.*
 import io.vertx.core.eventbus.Message
 import io.vertx.core.eventbus.ReplyException
@@ -57,6 +58,7 @@ import spp.processor.common.FeedbackProcessor
 import spp.processor.common.SkyWalkingStorage.Companion.METRIC_PREFIX
 import spp.protocol.ProtocolMarshaller
 import spp.protocol.SourceServices
+import spp.protocol.SourceServices.Provide.toLiveInstrumentSubscriberAddress
 import spp.protocol.artifact.exception.LiveStackTrace
 import spp.protocol.error.MissingRemoteException
 import spp.protocol.instrument.*
@@ -66,12 +68,13 @@ import spp.protocol.instrument.event.LiveInstrumentRemoved
 import spp.protocol.instrument.meter.MeterType
 import spp.protocol.platform.PlatformAddress
 import spp.protocol.probe.ProbeAddress
-import spp.protocol.probe.ProbeAddress.*
+import spp.protocol.probe.ProbeAddress.LIVE_INSTRUMENT_REMOTE
+import spp.protocol.probe.ProbeAddress.REMOTE_REGISTERED
 import spp.protocol.probe.command.CommandType
 import spp.protocol.probe.command.LiveInstrumentCommand
 import spp.protocol.probe.command.LiveInstrumentContext
-import spp.protocol.service.error.LiveInstrumentException
 import spp.protocol.service.LiveInstrumentService
+import spp.protocol.service.error.LiveInstrumentException
 import spp.protocol.status.ActiveProbe
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
@@ -397,6 +400,11 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
     private val liveInstruments = Collections.newSetFromMap(ConcurrentHashMap<DeveloperInstrument, Boolean>())
     private val waitingApply = ConcurrentHashMap<String, Handler<AsyncResult<DeveloperInstrument>>>()
 
+    //todo: rethink dev instrument cache
+    private val developerInstrumentCache = CacheBuilder.newBuilder()
+        .expireAfterAccess(1, TimeUnit.HOURS)
+        .build<String, DeveloperInstrument>()
+
     private fun handleInstrumentRemoved(it: Message<JsonObject>) {
         if (log.isTraceEnabled) log.trace("Got live instrument removed: {}", it.body())
         val instrumentCommand = it.body().getString("command")
@@ -467,8 +475,8 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
 
                 waitingApply.remove(appliedInstrument.id)?.handle(Future.succeededFuture(devInstrument))
 
-                vertx.eventBus().publish(
-                    SourceServices.Provide.LIVE_INSTRUMENT_SUBSCRIBER,
+                InstrumentProcessor.publishEvent(
+                    toLiveInstrumentSubscriberAddress(it.developerAuth.selfId),
                     JsonObject.mapFrom(LiveInstrumentEvent(eventType, Json.encode(appliedInstrument)))
                 )
                 if (log.isTraceEnabled) log.trace("Published live instrument applied")
@@ -531,8 +539,8 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
                 LiveInstrumentType.METER -> LiveInstrumentEventType.METER_ADDED
                 LiveInstrumentType.SPAN -> LiveInstrumentEventType.SPAN_ADDED
             }
-            vertx.eventBus().publish(
-                SourceServices.Provide.LIVE_INSTRUMENT_SUBSCRIBER,
+            InstrumentProcessor.publishEvent(
+                toLiveInstrumentSubscriberAddress(devAuth.selfId),
                 JsonObject.mapFrom(LiveInstrumentEvent(eventType, Json.encode(liveInstrument)))
             )
         }
@@ -579,6 +587,14 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
         }
     }
 
+    fun _getDeveloperInstrumentById(id: String): DeveloperInstrument? {
+        return liveInstruments.find { it.instrument.id == id }
+    }
+
+    fun getCachedDeveloperInstrument(id: String): DeveloperInstrument {
+        return developerInstrumentCache.getIfPresent(id)!!
+    }
+
     fun _getLiveInstrumentById(id: String): LiveInstrument? {
         return liveInstruments.find { it.instrument.id == id }?.instrument
     }
@@ -592,6 +608,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
     ) {
         log.debug("Removing live instrument: ${liveInstrument.id}")
         val devInstrument = DeveloperInstrument(devAuth, liveInstrument)
+        developerInstrumentCache.put(devInstrument.instrument.id!!, devInstrument)
         liveInstruments.remove(devInstrument)
 
         val debuggerCommand = LiveInstrumentCommand(
@@ -616,8 +633,8 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
                 LiveInstrumentType.SPAN -> LiveInstrumentEventType.SPAN_REMOVED
             }
             val eventData = Json.encode(LiveInstrumentRemoved(liveInstrument, occurredAt, jvmCause))
-            vertx.eventBus().publish(
-                SourceServices.Provide.LIVE_INSTRUMENT_SUBSCRIBER,
+            InstrumentProcessor.publishEvent(
+                toLiveInstrumentSubscriberAddress(devAuth.selfId),
                 JsonObject.mapFrom(LiveInstrumentEvent(eventType, eventData))
             )
         }
@@ -677,8 +694,8 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
                 LiveInstrumentType.METER -> LiveInstrumentEventType.METER_REMOVED
                 LiveInstrumentType.SPAN -> LiveInstrumentEventType.SPAN_REMOVED
             }
-            vertx.eventBus().publish(
-                SourceServices.Provide.LIVE_INSTRUMENT_SUBSCRIBER,
+            InstrumentProcessor.publishEvent(
+                toLiveInstrumentSubscriberAddress(devAuth.selfId),
                 JsonObject.mapFrom(LiveInstrumentEvent(eventType, Json.encode(result)))
             )
         }

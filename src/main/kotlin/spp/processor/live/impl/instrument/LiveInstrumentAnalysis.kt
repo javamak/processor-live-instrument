@@ -33,9 +33,10 @@ import org.apache.skywalking.oap.server.analyzer.provider.AnalyzerModuleConfig
 import org.apache.skywalking.oap.server.analyzer.provider.trace.parser.listener.*
 import org.apache.skywalking.oap.server.library.module.ModuleManager
 import org.slf4j.LoggerFactory
+import spp.processor.InstrumentProcessor
 import spp.processor.InstrumentProcessor.liveInstrumentProcessor
 import spp.processor.common.FeedbackProcessor.Companion.vertx
-import spp.protocol.SourceServices
+import spp.protocol.SourceServices.Provide.toLiveInstrumentSubscriberAddress
 import spp.protocol.artifact.exception.LiveStackTrace
 import spp.protocol.artifact.exception.LiveStackTraceElement
 import spp.protocol.artifact.exception.sourceAsLineNumber
@@ -214,21 +215,22 @@ class LiveInstrumentAnalysis : AnalysisListenerFactory, LogAnalysisListenerFacto
             return this
         }
 
-        private fun handleLogHit(logHit: LiveLogHit) {
-            if (log.isTraceEnabled) log.trace("Live log hit: {}", logHit)
-            val instrument = liveInstrumentProcessor._getLiveInstrumentById(logHit.logId)
-            if (instrument != null) {
-                val instrumentMeta = instrument.meta as MutableMap<String, Any>
+        private fun handleLogHit(hit: LiveLogHit) {
+            if (log.isTraceEnabled) log.trace("Live log hit: {}", hit)
+            val liveInstrument = liveInstrumentProcessor._getDeveloperInstrumentById(hit.logId)
+            if (liveInstrument != null) {
+                val instrumentMeta = liveInstrument.instrument.meta as MutableMap<String, Any>
                 if ((instrumentMeta["hit_count"] as AtomicInteger?)?.incrementAndGet() == 1) {
                     instrumentMeta["first_hit_at"] = System.currentTimeMillis().toString()
                 }
                 instrumentMeta["last_hit_at"] = System.currentTimeMillis().toString()
             }
 
-            vertx.eventBus().publish(
-                SourceServices.Provide.LIVE_INSTRUMENT_SUBSCRIBER,
+            val devInstrument = liveInstrument ?: liveInstrumentProcessor.getCachedDeveloperInstrument(hit.logId)
+            InstrumentProcessor.publishEvent(
+                toLiveInstrumentSubscriberAddress(devInstrument.developerAuth.selfId),
                 JsonObject.mapFrom(
-                    LiveInstrumentEvent(LiveInstrumentEventType.LOG_HIT, JsonObject.mapFrom(logHit).toString())
+                    LiveInstrumentEvent(LiveInstrumentEventType.LOG_HIT, JsonObject.mapFrom(hit).toString())
                 )
             )
             if (log.isTraceEnabled) log.trace("Published live log hit")
@@ -330,20 +332,21 @@ class LiveInstrumentAnalysis : AnalysisListenerFactory, LogAnalysisListenerFacto
             }
         }
 
-        private fun handleBreakpointHit(bpHit: LiveBreakpointHit) {
-            if (log.isTraceEnabled) log.trace("Live breakpoint hit: {}", bpHit)
-            val instrument = liveInstrumentProcessor._getLiveInstrumentById(bpHit.breakpointId)
-            if (instrument != null) {
-                val instrumentMeta = instrument.meta as MutableMap<String, Any>
+        private fun handleBreakpointHit(hit: LiveBreakpointHit) {
+            if (log.isTraceEnabled) log.trace("Live breakpoint hit: {}", hit)
+            val liveInstrument = liveInstrumentProcessor._getDeveloperInstrumentById(hit.breakpointId)
+            if (liveInstrument != null) {
+                val instrumentMeta = liveInstrument.instrument.meta as MutableMap<String, Any>
                 if ((instrumentMeta["hit_count"] as AtomicInteger?)?.incrementAndGet() == 1) {
                     instrumentMeta["first_hit_at"] = System.currentTimeMillis().toString()
                 }
                 instrumentMeta["last_hit_at"] = System.currentTimeMillis().toString()
             }
 
-            vertx.eventBus().publish(
-                SourceServices.Provide.LIVE_INSTRUMENT_SUBSCRIBER,
-                JsonObject.mapFrom(LiveInstrumentEvent(LiveInstrumentEventType.BREAKPOINT_HIT, Json.encode(bpHit)))
+            val devInstrument = liveInstrument ?: liveInstrumentProcessor.getCachedDeveloperInstrument(hit.breakpointId)
+            InstrumentProcessor.publishEvent(
+                toLiveInstrumentSubscriberAddress(devInstrument.developerAuth.selfId),
+                JsonObject.mapFrom(LiveInstrumentEvent(LiveInstrumentEventType.BREAKPOINT_HIT, Json.encode(hit)))
             )
             if (log.isTraceEnabled) log.trace("Published live breakpoint hit")
         }

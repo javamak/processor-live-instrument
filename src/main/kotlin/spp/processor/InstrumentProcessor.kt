@@ -42,14 +42,13 @@ import org.slf4j.LoggerFactory
 import spp.processor.common.FeedbackProcessor
 import spp.processor.live.impl.LiveInstrumentProcessorImpl
 import spp.protocol.SourceServices
-import spp.protocol.SourceServices.Provide.LIVE_INSTRUMENT_SUBSCRIBER
 import spp.protocol.auth.RolePermission
 import spp.protocol.developer.SelfInfo
 import spp.protocol.platform.PlatformAddress
 import spp.protocol.probe.ProbeAddress
+import spp.protocol.service.LiveInstrumentService
 import spp.protocol.service.error.InstrumentAccessDenied
 import spp.protocol.service.error.PermissionAccessDenied
-import spp.protocol.service.LiveInstrumentService
 import spp.protocol.util.KSerializers
 import spp.protocol.utils.AccessChecker
 import kotlin.system.exitProcess
@@ -67,7 +66,6 @@ object InstrumentProcessor : FeedbackProcessor() {
             log.info("InstrumentProcessor initialized")
 
             connectToPlatform()
-            republishEvents(LIVE_INSTRUMENT_SUBSCRIBER)
         }
     }
 
