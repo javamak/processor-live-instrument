@@ -124,28 +124,10 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
             //todo: probably need to redo pending boolean. it doesn't make sense here since pending just means
             // it has been applied to any instrument at all at any point
             val remote = it.body().getString("address").substringBefore(":")
-            if (remote == LIVE_BREAKPOINT_REMOTE.address) {
-                log.debug("Live breakpoint remote registered. Sending active live breakpoints")
-                liveInstruments.filter { it.instrument is LiveBreakpoint }.forEach {
-                    _addLiveInstrument(it.developerAuth, it.instrument as LiveBreakpoint, false)
-                }
-            }
-            if (remote == LIVE_LOG_REMOTE.address) {
-                log.debug("Live log remote registered. Sending active live logs")
-                liveInstruments.filter { it.instrument is LiveLog }.forEach {
-                    _addLiveInstrument(it.developerAuth, it.instrument as LiveLog, false)
-                }
-            }
-            if (remote == LIVE_METER_REMOTE.address) {
-                log.debug("Live meter remote registered. Sending active live meters")
-                liveInstruments.filter { it.instrument is LiveMeter }.forEach {
-                    _addLiveInstrument(it.developerAuth, it.instrument as LiveMeter, false)
-                }
-            }
-            if (remote == LIVE_SPAN_REMOTE.address) {
-                log.debug("Live span remote registered. Sending active live spans")
-                liveInstruments.filter { it.instrument is LiveSpan }.forEach {
-                    _addLiveInstrument(it.developerAuth, it.instrument as LiveSpan, false)
+            if (remote == LIVE_INSTRUMENT_REMOTE.address) {
+                log.debug("Live instrument remote registered. Sending active live instruments")
+                liveInstruments.forEach {
+                    _addLiveInstrument(it.developerAuth, it.instrument, false)
                 }
             }
         }
@@ -521,22 +503,16 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
             CommandType.ADD_LIVE_INSTRUMENT, LiveInstrumentContext(setOf(liveInstrument))
         )
 
-        val probeAddress = when (liveInstrument.type) {
-            LiveInstrumentType.BREAKPOINT -> LIVE_BREAKPOINT_REMOTE
-            LiveInstrumentType.LOG -> LIVE_LOG_REMOTE
-            LiveInstrumentType.METER -> LIVE_METER_REMOTE
-            LiveInstrumentType.SPAN -> LIVE_SPAN_REMOTE
-        }
         val devInstrument = DeveloperInstrument(devAuth, liveInstrument)
         liveInstruments.add(devInstrument)
         try {
-            dispatchCommand(devAuth.accessToken, probeAddress, liveInstrument.location, debuggerCommand)
+            dispatchCommand(devAuth.accessToken, LIVE_INSTRUMENT_REMOTE, liveInstrument.location, debuggerCommand)
         } catch (ex: ReplyException) {
             return if (ex.failureType() == ReplyFailure.NO_HANDLERS) {
                 if (liveInstrument.applyImmediately) {
                     liveInstruments.remove(devInstrument)
-                    log.warn("Live instrument failed due to missing remote(s)")
-                    Future.failedFuture(MissingRemoteException(probeAddress.address).toEventBusException())
+                    log.warn("Live instrument failed due to missing remote")
+                    Future.failedFuture(MissingRemoteException(LIVE_INSTRUMENT_REMOTE.address).toEventBusException())
                 } else {
                     log.info("Live instrument pending application on probe connection")
                     Future.succeededFuture(liveInstrument)
@@ -618,16 +594,10 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
         val devInstrument = DeveloperInstrument(devAuth, liveInstrument)
         liveInstruments.remove(devInstrument)
 
-        val probeAddress = when (liveInstrument.type) {
-            LiveInstrumentType.BREAKPOINT -> LIVE_BREAKPOINT_REMOTE
-            LiveInstrumentType.LOG -> LIVE_LOG_REMOTE
-            LiveInstrumentType.METER -> LIVE_METER_REMOTE
-            LiveInstrumentType.SPAN -> LIVE_SPAN_REMOTE
-        }
         val debuggerCommand = LiveInstrumentCommand(
             CommandType.REMOVE_LIVE_INSTRUMENT, LiveInstrumentContext(setOf(liveInstrument))
         )
-        dispatchCommand(devAuth.accessToken, probeAddress, liveInstrument.location, debuggerCommand)
+        dispatchCommand(devAuth.accessToken, LIVE_INSTRUMENT_REMOTE, liveInstrument.location, debuggerCommand)
 
         val jvmCause = if (cause == null) null else LiveStackTrace.fromString(cause)
         val waitingHandler = waitingApply.remove(liveInstrument.id)
@@ -698,13 +668,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
         if (result.isEmpty()) {
             log.info("Could not find live instrument(s) at: $location")
         } else {
-            val probeAddress = when (instrumentType) {
-                LiveInstrumentType.BREAKPOINT -> LIVE_BREAKPOINT_REMOTE
-                LiveInstrumentType.LOG -> LIVE_LOG_REMOTE
-                LiveInstrumentType.METER -> LIVE_METER_REMOTE
-                LiveInstrumentType.SPAN -> LIVE_SPAN_REMOTE
-            }
-            dispatchCommand(devAuth.accessToken, probeAddress, location, debuggerCommand)
+            dispatchCommand(devAuth.accessToken, LIVE_INSTRUMENT_REMOTE, location, debuggerCommand)
             log.debug("Removed live instrument(s) at: $location")
 
             val eventType = when (instrumentType) {
