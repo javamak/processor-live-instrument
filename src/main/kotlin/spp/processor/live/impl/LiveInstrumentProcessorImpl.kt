@@ -118,7 +118,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
         }
 
         //send active instruments on probe connection
-        vertx.eventBus().consumer<JsonObject>("local." + REMOTE_REGISTERED.address) {
+        vertx.eventBus().consumer<JsonObject>(REMOTE_REGISTERED.address) {
             //todo: impl batch instrument add
             //todo: more efficient to just send batch add to specific probe instead of publish to all per connection
             //todo: probably need to redo pending boolean. it doesn't make sense here since pending just means
@@ -133,10 +133,10 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
         }
 
         //listen for instruments applied/removed
-        vertx.eventBus().localConsumer<JsonObject>("local." + PlatformAddress.LIVE_INSTRUMENT_APPLIED.address) {
+        vertx.eventBus().localConsumer<JsonObject>(PlatformAddress.LIVE_INSTRUMENT_APPLIED.address) {
             handleLiveInstrumentApplied(it)
         }
-        vertx.eventBus().localConsumer<JsonObject>("local." + PlatformAddress.LIVE_INSTRUMENT_REMOVED.address) {
+        vertx.eventBus().localConsumer<JsonObject>(PlatformAddress.LIVE_INSTRUMENT_REMOVED.address) {
             handleInstrumentRemoved(it)
         }
     }

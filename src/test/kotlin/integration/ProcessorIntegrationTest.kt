@@ -96,7 +96,7 @@ open class ProcessorIntegrationTest {
                 //send marker connected status
                 val replyAddress = UUID.randomUUID().toString()
                 val pc = InstanceConnection(INSTANCE_ID, System.currentTimeMillis())
-                val consumer: MessageConsumer<Boolean> = vertx.eventBus().localConsumer("local.$replyAddress")
+                val consumer: MessageConsumer<Boolean> = vertx.eventBus().localConsumer(replyAddress)
 
                 val promise = Promise.promise<Void>()
                 consumer.handler {
@@ -117,13 +117,13 @@ open class ProcessorIntegrationTest {
                     val forwardMessage = resp.body()
                     val replyAddress = UUID.randomUUID().toString()
 
-                    if (log.isTraceEnabled) log.trace("Started listening at {}", "local.$replyAddress")
-                    val tempConsumer = vertx.eventBus().localConsumer<Any>("local.$replyAddress")
+                    if (log.isTraceEnabled) log.trace("Started listening at {}", replyAddress)
+                    val tempConsumer = vertx.eventBus().localConsumer<Any>(replyAddress)
                     tempConsumer.handler {
                         resp.reply(it.body())
                         tempConsumer.unregister()
 
-                        if (log.isTraceEnabled) log.trace("Finished listening at {}", "local.$replyAddress")
+                        if (log.isTraceEnabled) log.trace("Finished listening at {}", replyAddress)
                     }
 
                     val headers = JsonObject()
