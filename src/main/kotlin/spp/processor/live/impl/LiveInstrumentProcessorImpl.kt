@@ -20,18 +20,12 @@ package spp.processor.live.impl
 import com.google.common.cache.CacheBuilder
 import io.vertx.core.*
 import io.vertx.core.eventbus.Message
-import io.vertx.core.eventbus.ReplyException
-import io.vertx.core.eventbus.ReplyFailure
 import io.vertx.core.json.Json
 import io.vertx.core.json.JsonArray
 import io.vertx.core.json.JsonObject
 import io.vertx.ext.bridge.BridgeEventType
 import io.vertx.ext.eventbus.bridge.tcp.impl.protocol.FrameHelper
 import io.vertx.kotlin.coroutines.CoroutineVerticle
-import io.vertx.kotlin.coroutines.await
-import io.vertx.kotlin.coroutines.dispatcher
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
 import kotlinx.datetime.toJavaInstant
@@ -57,10 +51,8 @@ import spp.processor.common.DeveloperAuth
 import spp.processor.common.FeedbackProcessor
 import spp.processor.common.SkyWalkingStorage.Companion.METRIC_PREFIX
 import spp.protocol.ProtocolMarshaller
-import spp.protocol.SourceServices
 import spp.protocol.SourceServices.Provide.toLiveInstrumentSubscriberAddress
 import spp.protocol.artifact.exception.LiveStackTrace
-import spp.protocol.error.MissingRemoteException
 import spp.protocol.instrument.*
 import spp.protocol.instrument.event.LiveInstrumentEvent
 import spp.protocol.instrument.event.LiveInstrumentEventType
@@ -74,8 +66,7 @@ import spp.protocol.probe.command.CommandType
 import spp.protocol.probe.command.LiveInstrumentCommand
 import spp.protocol.probe.command.LiveInstrumentContext
 import spp.protocol.service.LiveInstrumentService
-import spp.protocol.service.error.LiveInstrumentException
-import spp.protocol.status.ActiveProbe
+import spp.protocol.util.ServiceExceptionConverter
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.util.*
@@ -513,24 +504,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
 
         val devInstrument = DeveloperInstrument(devAuth, liveInstrument)
         liveInstruments.add(devInstrument)
-        try {
-            dispatchCommand(devAuth.accessToken, LIVE_INSTRUMENT_REMOTE, liveInstrument.location, debuggerCommand)
-        } catch (ex: ReplyException) {
-            return if (ex.failureType() == ReplyFailure.NO_HANDLERS) {
-                if (liveInstrument.applyImmediately) {
-                    liveInstruments.remove(devInstrument)
-                    log.warn("Live instrument failed due to missing remote")
-                    Future.failedFuture(MissingRemoteException(LIVE_INSTRUMENT_REMOTE.address).toEventBusException())
-                } else {
-                    log.info("Live instrument pending application on probe connection")
-                    Future.succeededFuture(liveInstrument)
-                }
-            } else {
-                liveInstruments.remove(devInstrument)
-                log.warn("Failed to add live instrument: Reason: {}", ex.message)
-                Future.failedFuture(ex)
-            }
-        }
+        dispatchCommand(LIVE_INSTRUMENT_REMOTE, debuggerCommand)
 
         if (alertSubscribers) {
             val eventType = when (liveInstrument.type) {
@@ -547,44 +521,13 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
         return Future.succeededFuture(liveInstrument)
     }
 
-    private fun dispatchCommand(
-        accessToken: String?,
-        address: ProbeAddress,
-        location: LiveSourceLocation,
-        debuggerCommand: LiveInstrumentCommand
-    ) = GlobalScope.launch(vertx.dispatcher()) {
-        val promise = Promise.promise<JsonArray>()
-        InstrumentProcessor.requestEvent<JsonArray>(
-            SourceServices.Utilize.LIVE_SERVICE, JsonObject(),
-            JsonObject().apply { accessToken?.let { put("auth-token", accessToken) } }.put("action", "getActiveProbes")
-        ) {
-            if (it.succeeded()) {
-                promise.complete(it.result())
-            } else {
-                promise.fail(it.cause())
-            }
-        }
-        val activeProbes = promise.future().await().map { Json.decodeValue(it.toString(), ActiveProbe::class.java) }
-
-        val sendToProbes = activeProbes.filter {
-            (location.service == null || it.meta["service"] == location.service) &&
-                    (location.serviceInstance == null || it.meta["service_instance"] == location.serviceInstance)
-        }
-        if (sendToProbes.isEmpty()) {
-            log.warn("No active probes found to receive command")
-            return@launch
-        } else {
-            log.debug("Dispatching {} to {} probes", debuggerCommand.commandType, sendToProbes.size)
-        }
-
-        sendToProbes.forEach {
-            log.trace("Dispatching command to probe: {}", it.probeId)
-            FrameHelper.sendFrame(
-                BridgeEventType.SEND.name.lowercase(),
-                address.address + ":" + it.probeId, null, JsonObject(), true,
-                JsonObject.mapFrom(debuggerCommand), FeedbackProcessor.tcpSocket
-            )
-        }
+    private fun dispatchCommand(address: ProbeAddress, debuggerCommand: LiveInstrumentCommand) {
+        log.trace("Dispatching command ${debuggerCommand.commandType} to connected probe(s)")
+        FrameHelper.sendFrame(
+            BridgeEventType.PUBLISH.name.lowercase(),
+            address.address, null, JsonObject(), true,
+            JsonObject.mapFrom(debuggerCommand), FeedbackProcessor.tcpSocket
+        )
     }
 
     fun _getDeveloperInstrumentById(id: String): DeveloperInstrument? {
@@ -614,13 +557,13 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
         val debuggerCommand = LiveInstrumentCommand(
             CommandType.REMOVE_LIVE_INSTRUMENT, LiveInstrumentContext(setOf(liveInstrument))
         )
-        dispatchCommand(devAuth.accessToken, LIVE_INSTRUMENT_REMOTE, liveInstrument.location, debuggerCommand)
+        dispatchCommand(LIVE_INSTRUMENT_REMOTE, debuggerCommand)
 
         val jvmCause = if (cause == null) null else LiveStackTrace.fromString(cause)
         val waitingHandler = waitingApply.remove(liveInstrument.id)
         if (waitingHandler != null) {
             if (cause?.startsWith("EventBusException") == true) {
-                val ebException = fromEventBusException(cause)
+                val ebException = ServiceExceptionConverter.fromEventBusException(cause)
                 waitingHandler.handle(Future.failedFuture(ebException))
             } else {
                 TODO("$cause")
@@ -685,7 +628,7 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
         if (result.isEmpty()) {
             log.info("Could not find live instrument(s) at: $location")
         } else {
-            dispatchCommand(devAuth.accessToken, LIVE_INSTRUMENT_REMOTE, location, debuggerCommand)
+            dispatchCommand(LIVE_INSTRUMENT_REMOTE, debuggerCommand)
             log.debug("Removed live instrument(s) at: $location")
 
             val eventType = when (instrumentType) {
@@ -815,25 +758,5 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
             }
         }
         return Future.succeededFuture(JsonObject().put("values", JsonArray(values)))
-    }
-
-    private fun fromEventBusException(exception: String): Exception {
-        return if (exception.startsWith("EventBusException")) {
-            var exceptionType = exception.substringAfter("EventBusException:")
-            exceptionType = exceptionType.substringBefore("[")
-            var exceptionParams = exception.substringAfter("[")
-            exceptionParams = exceptionParams.substringBefore("]")
-            val exceptionMessage = exception.substringAfter("]: ").trim { it <= ' ' }
-            if (LiveInstrumentException::class.java.simpleName == exceptionType) {
-                LiveInstrumentException(
-                    LiveInstrumentException.ErrorType.valueOf(exceptionParams),
-                    exceptionMessage
-                ).toEventBusException()
-            } else {
-                throw UnsupportedOperationException(exceptionType)
-            }
-        } else {
-            throw IllegalArgumentException(exception)
-        }
     }
 }
