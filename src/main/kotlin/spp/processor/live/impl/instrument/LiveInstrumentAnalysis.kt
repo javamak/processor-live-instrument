@@ -49,7 +49,7 @@ import spp.protocol.instrument.event.LiveInstrumentEventType
 import spp.protocol.instrument.event.LiveLogHit
 import spp.protocol.instrument.variable.LiveVariable
 import spp.protocol.instrument.variable.LiveVariableScope
-import spp.protocol.processor.ProcessorAddress
+import spp.protocol.platform.ProcessorAddress
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 

@@ -35,7 +35,7 @@ import spp.protocol.SourceServices
 import spp.protocol.SourceServices.Provide.toLiveInstrumentSubscriberAddress
 import spp.protocol.extend.TCPServiceFrameParser
 import spp.protocol.platform.PlatformAddress
-import spp.protocol.status.InstanceConnection
+import spp.protocol.platform.status.InstanceConnection
 import java.util.*
 
 open class ProcessorIntegrationTest {
