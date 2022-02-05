@@ -42,8 +42,8 @@ import org.slf4j.LoggerFactory
 import spp.processor.common.FeedbackProcessor
 import spp.processor.live.impl.LiveInstrumentProcessorImpl
 import spp.protocol.SourceServices
-import spp.protocol.platform.PlatformAddress
 import spp.protocol.platform.ProbeAddress
+import spp.protocol.platform.ProcessorAddress
 import spp.protocol.platform.auth.AccessChecker
 import spp.protocol.platform.auth.RolePermission
 import spp.protocol.platform.developer.SelfInfo
@@ -84,12 +84,12 @@ object InstrumentProcessor : FeedbackProcessor() {
         )
         FrameHelper.sendFrame(
             BridgeEventType.REGISTER.name.lowercase(),
-            PlatformAddress.LIVE_INSTRUMENT_APPLIED,
+            ProcessorAddress.LIVE_INSTRUMENT_APPLIED,
             JsonObject(), tcpSocket
         )
         FrameHelper.sendFrame(
             BridgeEventType.REGISTER.name.lowercase(),
-            PlatformAddress.LIVE_INSTRUMENT_REMOVED,
+            ProcessorAddress.LIVE_INSTRUMENT_REMOVED,
             JsonObject(), tcpSocket
         )
 

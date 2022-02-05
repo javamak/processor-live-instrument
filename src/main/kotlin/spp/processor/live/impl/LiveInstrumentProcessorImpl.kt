@@ -61,10 +61,9 @@ import spp.protocol.instrument.event.LiveInstrumentEvent
 import spp.protocol.instrument.event.LiveInstrumentEventType
 import spp.protocol.instrument.event.LiveInstrumentRemoved
 import spp.protocol.instrument.meter.MeterType
-import spp.protocol.platform.PlatformAddress
-import spp.protocol.platform.ProbeAddress
 import spp.protocol.platform.ProbeAddress.LIVE_INSTRUMENT_REMOTE
 import spp.protocol.platform.ProbeAddress.REMOTE_REGISTERED
+import spp.protocol.platform.ProcessorAddress
 import spp.protocol.service.LiveInstrumentService
 import spp.protocol.util.ServiceExceptionConverter
 import java.time.ZoneOffset
@@ -127,10 +126,10 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
         }
 
         //listen for instruments applied/removed
-        vertx.eventBus().localConsumer<JsonObject>(PlatformAddress.LIVE_INSTRUMENT_APPLIED) {
+        vertx.eventBus().localConsumer<JsonObject>(ProcessorAddress.LIVE_INSTRUMENT_APPLIED) {
             handleLiveInstrumentApplied(it)
         }
-        vertx.eventBus().localConsumer<JsonObject>(PlatformAddress.LIVE_INSTRUMENT_REMOVED) {
+        vertx.eventBus().localConsumer<JsonObject>(ProcessorAddress.LIVE_INSTRUMENT_REMOVED) {
             handleInstrumentRemoved(it)
         }
     }
