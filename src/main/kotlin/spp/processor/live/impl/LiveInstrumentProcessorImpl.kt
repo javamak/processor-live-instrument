@@ -62,7 +62,7 @@ import spp.protocol.instrument.event.LiveInstrumentEventType
 import spp.protocol.instrument.event.LiveInstrumentRemoved
 import spp.protocol.instrument.meter.MeterType
 import spp.protocol.platform.ProbeAddress.LIVE_INSTRUMENT_REMOTE
-import spp.protocol.platform.ProbeAddress.REMOTE_REGISTERED
+import spp.protocol.platform.ProcessorAddress.REMOTE_REGISTERED
 import spp.protocol.platform.ProcessorAddress
 import spp.protocol.service.LiveInstrumentService
 import spp.protocol.util.ServiceExceptionConverter
