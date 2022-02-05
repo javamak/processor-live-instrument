@@ -106,7 +106,7 @@ open class ProcessorIntegrationTest {
                 }
 
                 FrameHelper.sendFrame(
-                    BridgeEventType.SEND.name.lowercase(), PlatformAddress.MARKER_CONNECTED.address,
+                    BridgeEventType.SEND.name.lowercase(), PlatformAddress.MARKER_CONNECTED,
                     replyAddress, JsonObject(), true, JsonObject.mapFrom(pc), tcpSocket
                 )
                 withTimeout(5000) {

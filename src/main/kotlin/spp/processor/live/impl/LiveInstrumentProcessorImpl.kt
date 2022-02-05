@@ -112,13 +112,13 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
         }
 
         //send active instruments on probe connection
-        vertx.eventBus().consumer<JsonObject>(REMOTE_REGISTERED.address) {
+        vertx.eventBus().consumer<JsonObject>(REMOTE_REGISTERED) {
             //todo: impl batch instrument add
             //todo: more efficient to just send batch add to specific probe instead of publish to all per connection
             //todo: probably need to redo pending boolean. it doesn't make sense here since pending just means
             // it has been applied to any instrument at all at any point
             val remote = it.body().getString("address").substringBefore(":")
-            if (remote == LIVE_INSTRUMENT_REMOTE.address) {
+            if (remote == LIVE_INSTRUMENT_REMOTE) {
                 log.debug("Live instrument remote registered. Sending active live instruments")
                 liveInstruments.forEach {
                     _addLiveInstrument(it.developerAuth, it.instrument, false)
@@ -127,10 +127,10 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
         }
 
         //listen for instruments applied/removed
-        vertx.eventBus().localConsumer<JsonObject>(PlatformAddress.LIVE_INSTRUMENT_APPLIED.address) {
+        vertx.eventBus().localConsumer<JsonObject>(PlatformAddress.LIVE_INSTRUMENT_APPLIED) {
             handleLiveInstrumentApplied(it)
         }
-        vertx.eventBus().localConsumer<JsonObject>(PlatformAddress.LIVE_INSTRUMENT_REMOVED.address) {
+        vertx.eventBus().localConsumer<JsonObject>(PlatformAddress.LIVE_INSTRUMENT_REMOVED) {
             handleInstrumentRemoved(it)
         }
     }
@@ -521,11 +521,11 @@ class LiveInstrumentProcessorImpl : CoroutineVerticle(), LiveInstrumentService {
         return Future.succeededFuture(liveInstrument)
     }
 
-    private fun dispatchCommand(address: ProbeAddress, debuggerCommand: LiveInstrumentCommand) {
+    private fun dispatchCommand(address: String, debuggerCommand: LiveInstrumentCommand) {
         log.trace("Dispatching command ${debuggerCommand.commandType} to connected probe(s)")
         FrameHelper.sendFrame(
             BridgeEventType.PUBLISH.name.lowercase(),
-            address.address, null, JsonObject(), true,
+            address, null, JsonObject(), true,
             JsonObject.mapFrom(debuggerCommand), FeedbackProcessor.tcpSocket
         )
     }

@@ -79,17 +79,17 @@ object InstrumentProcessor : FeedbackProcessor() {
         )
         FrameHelper.sendFrame(
             BridgeEventType.REGISTER.name.lowercase(),
-            ProbeAddress.REMOTE_REGISTERED.address,
+            ProbeAddress.REMOTE_REGISTERED,
             JsonObject(), tcpSocket
         )
         FrameHelper.sendFrame(
             BridgeEventType.REGISTER.name.lowercase(),
-            PlatformAddress.LIVE_INSTRUMENT_APPLIED.address,
+            PlatformAddress.LIVE_INSTRUMENT_APPLIED,
             JsonObject(), tcpSocket
         )
         FrameHelper.sendFrame(
             BridgeEventType.REGISTER.name.lowercase(),
-            PlatformAddress.LIVE_INSTRUMENT_REMOVED.address,
+            PlatformAddress.LIVE_INSTRUMENT_REMOVED,
             JsonObject(), tcpSocket
         )
 

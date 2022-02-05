@@ -159,7 +159,7 @@ class LiveInstrumentAnalysis : AnalysisListenerFactory, LogAnalysisListenerFacto
 
     init {
         //todo: map of rate limit per log id
-        vertx.eventBus().consumer<Int>(ProcessorAddress.SET_LOG_PUBLISH_RATE_LIMIT.address) {
+        vertx.eventBus().consumer<Int>(ProcessorAddress.SET_LOG_PUBLISH_RATE_LIMIT) {
             logPublishRateLimit = it.body()
         }
     }
