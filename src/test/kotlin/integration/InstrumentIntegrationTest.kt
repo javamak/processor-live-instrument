@@ -27,6 +27,7 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.slf4j.LoggerFactory
+import spp.protocol.ProtocolMarshaller.deserializeLiveInstrumentRemoved
 import spp.protocol.SourceServices
 import spp.protocol.SourceServices.Provide.toLiveInstrumentSubscriberAddress
 import spp.protocol.instrument.LiveBreakpoint
@@ -76,7 +77,8 @@ class InstrumentIntegrationTest : ProcessorIntegrationTest() {
                 LiveInstrumentEventType.BREAKPOINT_REMOVED -> {
                     log.info("Got removed")
                     testContext.verify {
-                        assertEquals(instrumentId, JsonObject(liveEvent.data).getString("breakpointId"))
+                        val bpRemoved = deserializeLiveInstrumentRemoved(JsonObject(liveEvent.data))
+                        assertEquals(instrumentId, bpRemoved.liveInstrument.id)
                     }
                     gotRemoved = true
                 }
