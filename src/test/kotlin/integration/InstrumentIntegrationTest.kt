@@ -27,14 +27,15 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.slf4j.LoggerFactory
-import spp.protocol.SourceMarkerServices
-import spp.protocol.SourceMarkerServices.Provide
-import spp.protocol.instrument.LiveInstrumentEvent
-import spp.protocol.instrument.LiveInstrumentEventType
+import spp.protocol.ProtocolMarshaller.deserializeLiveInstrumentRemoved
+import spp.protocol.SourceServices
+import spp.protocol.SourceServices.Provide.toLiveInstrumentSubscriberAddress
+import spp.protocol.instrument.LiveBreakpoint
 import spp.protocol.instrument.LiveSourceLocation
-import spp.protocol.instrument.breakpoint.LiveBreakpoint
-import spp.protocol.instrument.breakpoint.event.LiveBreakpointHit
-import spp.protocol.service.live.LiveInstrumentService
+import spp.protocol.instrument.event.LiveBreakpointHit
+import spp.protocol.instrument.event.LiveInstrumentEvent
+import spp.protocol.instrument.event.LiveInstrumentEventType
+import spp.protocol.service.LiveInstrumentService
 import java.util.*
 import java.util.concurrent.TimeUnit
 
@@ -54,7 +55,7 @@ class InstrumentIntegrationTest : ProcessorIntegrationTest() {
         var gotRemoved = false
         val instrumentId = UUID.randomUUID().toString()
 
-        val consumer = vertx.eventBus().localConsumer<JsonObject>("local." + Provide.LIVE_INSTRUMENT_SUBSCRIBER)
+        val consumer = vertx.eventBus().localConsumer<JsonObject>(toLiveInstrumentSubscriberAddress("system"))
         consumer.handler {
             log.info("Got subscription event: {}", it.body())
             val liveEvent = Json.decodeValue(it.body().toString(), LiveInstrumentEvent::class.java)
@@ -76,7 +77,8 @@ class InstrumentIntegrationTest : ProcessorIntegrationTest() {
                 LiveInstrumentEventType.BREAKPOINT_REMOVED -> {
                     log.info("Got removed")
                     testContext.verify {
-                        assertEquals(instrumentId, JsonObject(liveEvent.data).getString("breakpointId"))
+                        val bpRemoved = deserializeLiveInstrumentRemoved(JsonObject(liveEvent.data))
+                        assertEquals(instrumentId, bpRemoved.liveInstrument.id)
                     }
                     gotRemoved = true
                 }
@@ -180,14 +182,14 @@ class InstrumentIntegrationTest : ProcessorIntegrationTest() {
 
             val instrumentService = ServiceProxyBuilder(vertx)
                 .setToken(SYSTEM_JWT_TOKEN)
-                .setAddress(SourceMarkerServices.Utilize.LIVE_INSTRUMENT)
+                .setAddress(SourceServices.Utilize.LIVE_INSTRUMENT)
                 .build(LiveInstrumentService::class.java)
             instrumentService.addLiveInstrument(
                 LiveBreakpoint(
                     id = instrumentId,
                     location = LiveSourceLocation("E2EApp", 24)
                 )
-            ) {
+            ).onComplete {
                 if (it.failed()) {
                     testContext.failNow(it.cause())
                 }

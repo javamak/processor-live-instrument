@@ -41,17 +41,15 @@ import org.apache.skywalking.oap.server.library.module.ModuleManager
 import org.slf4j.LoggerFactory
 import spp.processor.common.FeedbackProcessor
 import spp.processor.live.impl.LiveInstrumentProcessorImpl
-import spp.protocol.SourceMarkerServices
-import spp.protocol.SourceMarkerServices.Provide.LIVE_INSTRUMENT_SUBSCRIBER
-import spp.protocol.auth.RolePermission
-import spp.protocol.developer.SelfInfo
-import spp.protocol.platform.PlatformAddress
-import spp.protocol.probe.ProbeAddress
-import spp.protocol.processor.ProcessorAddress
+import spp.protocol.SourceServices
+import spp.protocol.platform.ProbeAddress
+import spp.protocol.platform.ProcessorAddress
+import spp.protocol.platform.auth.AccessChecker
+import spp.protocol.platform.auth.RolePermission
+import spp.protocol.platform.developer.SelfInfo
+import spp.protocol.service.LiveInstrumentService
 import spp.protocol.service.error.InstrumentAccessDenied
 import spp.protocol.service.error.PermissionAccessDenied
-import spp.protocol.service.live.LiveInstrumentService
-import spp.protocol.util.AccessChecker
 import spp.protocol.util.KSerializers
 import kotlin.system.exitProcess
 
@@ -68,7 +66,6 @@ object InstrumentProcessor : FeedbackProcessor() {
             log.info("InstrumentProcessor initialized")
 
             connectToPlatform()
-            republishEvents(LIVE_INSTRUMENT_SUBSCRIBER)
         }
     }
 
@@ -77,52 +74,22 @@ object InstrumentProcessor : FeedbackProcessor() {
         //register services
         FrameHelper.sendFrame(
             BridgeEventType.REGISTER.name.lowercase(),
-            SourceMarkerServices.Utilize.LIVE_INSTRUMENT,
+            SourceServices.Utilize.LIVE_INSTRUMENT,
             JsonObject(), tcpSocket
         )
         FrameHelper.sendFrame(
             BridgeEventType.REGISTER.name.lowercase(),
-            ProbeAddress.REMOTE_REGISTERED.address,
+            ProcessorAddress.REMOTE_REGISTERED,
             JsonObject(), tcpSocket
         )
         FrameHelper.sendFrame(
             BridgeEventType.REGISTER.name.lowercase(),
-            PlatformAddress.LIVE_BREAKPOINT_APPLIED.address,
+            ProcessorAddress.LIVE_INSTRUMENT_APPLIED,
             JsonObject(), tcpSocket
         )
         FrameHelper.sendFrame(
             BridgeEventType.REGISTER.name.lowercase(),
-            PlatformAddress.LIVE_BREAKPOINT_REMOVED.address,
-            JsonObject(), tcpSocket
-        )
-        FrameHelper.sendFrame(
-            BridgeEventType.REGISTER.name.lowercase(),
-            PlatformAddress.LIVE_LOG_APPLIED.address,
-            JsonObject(), tcpSocket
-        )
-        FrameHelper.sendFrame(
-            BridgeEventType.REGISTER.name.lowercase(),
-            PlatformAddress.LIVE_LOG_REMOVED.address,
-            JsonObject(), tcpSocket
-        )
-        FrameHelper.sendFrame(
-            BridgeEventType.REGISTER.name.lowercase(),
-            PlatformAddress.LIVE_METER_APPLIED.address,
-            JsonObject(), tcpSocket
-        )
-        FrameHelper.sendFrame(
-            BridgeEventType.REGISTER.name.lowercase(),
-            PlatformAddress.LIVE_METER_REMOVED.address,
-            JsonObject(), tcpSocket
-        )
-        FrameHelper.sendFrame(
-            BridgeEventType.REGISTER.name.lowercase(),
-            PlatformAddress.LIVE_SPAN_APPLIED.address,
-            JsonObject(), tcpSocket
-        )
-        FrameHelper.sendFrame(
-            BridgeEventType.REGISTER.name.lowercase(),
-            PlatformAddress.LIVE_SPAN_REMOVED.address,
+            ProcessorAddress.LIVE_INSTRUMENT_REMOVED,
             JsonObject(), tcpSocket
         )
 
@@ -161,12 +128,13 @@ object InstrumentProcessor : FeedbackProcessor() {
         vertx.deployVerticle(liveInstrumentProcessor).await()
 
         ServiceBinder(vertx).setIncludeDebugInfo(true)
+            .addInterceptor { developerAuthInterceptor(it) }
             .addInterceptor { msg -> permissionAndAccessCheckInterceptor(msg) }
-            .setAddress(SourceMarkerServices.Utilize.LIVE_INSTRUMENT)
+            .setAddress(SourceServices.Utilize.LIVE_INSTRUMENT)
             .register(LiveInstrumentService::class.java, liveInstrumentProcessor)
         liveInstrumentRecord = EventBusService.createRecord(
-            SourceMarkerServices.Utilize.LIVE_INSTRUMENT,
-            SourceMarkerServices.Utilize.LIVE_INSTRUMENT,
+            SourceServices.Utilize.LIVE_INSTRUMENT,
+            SourceServices.Utilize.LIVE_INSTRUMENT,
             LiveInstrumentService::class.java,
             JsonObject().put("INSTANCE_ID", INSTANCE_ID)
         )
@@ -183,7 +151,7 @@ object InstrumentProcessor : FeedbackProcessor() {
     private fun permissionAndAccessCheckInterceptor(msg: Message<JsonObject>): Future<Message<JsonObject>> {
         val promise = Promise.promise<Message<JsonObject>>()
         requestEvent<JsonObject>(
-            SourceMarkerServices.Utilize.LIVE_SERVICE, JsonObject(),
+            SourceServices.Utilize.LIVE_SERVICE, JsonObject(),
             JsonObject().apply {
                 if (msg.headers().contains("auth-token")) put("auth-token", msg.headers().get("auth-token"))
             }.put("action", "getSelf")
@@ -213,7 +181,7 @@ object InstrumentProcessor : FeedbackProcessor() {
     ) {
         if (msg.headers().get("action") == "addLiveInstruments") {
             val batchPromise = Promise.promise<Message<JsonObject>>()
-            msg.body().getJsonObject("batch").getJsonArray("instruments").list.forEach {
+            msg.body().getJsonArray("instruments").list.forEach {
                 val instrumentType = (it as JsonObject).getString("type")
                 val necessaryPermission = RolePermission.valueOf("ADD_LIVE_$instrumentType")
                 if (!selfInfo.permissions.contains(necessaryPermission)) {
@@ -264,7 +232,7 @@ object InstrumentProcessor : FeedbackProcessor() {
         selfInfo: SelfInfo, msg: Message<JsonObject>, promise: Promise<Message<JsonObject>>
     ) {
         if (msg.headers().get("action") == "addLiveInstruments") {
-            val instruments = msg.body().getJsonObject("batch").getJsonArray("instruments")
+            val instruments = msg.body().getJsonArray("instruments")
             for (i in 0 until instruments.size()) {
                 val sourceLocation = instruments.getJsonObject(i)
                     .getJsonObject("location").getString("source")

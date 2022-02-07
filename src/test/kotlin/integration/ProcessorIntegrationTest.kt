@@ -31,10 +31,11 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.BeforeAll
 import org.slf4j.LoggerFactory
-import spp.protocol.SourceMarkerServices
+import spp.protocol.SourceServices
+import spp.protocol.SourceServices.Provide.toLiveInstrumentSubscriberAddress
 import spp.protocol.extend.TCPServiceFrameParser
 import spp.protocol.platform.PlatformAddress
-import spp.protocol.status.MarkerConnection
+import spp.protocol.platform.status.InstanceConnection
 import java.util.*
 
 open class ProcessorIntegrationTest {
@@ -95,8 +96,8 @@ open class ProcessorIntegrationTest {
 
                 //send marker connected status
                 val replyAddress = UUID.randomUUID().toString()
-                val pc = MarkerConnection(INSTANCE_ID, System.currentTimeMillis())
-                val consumer: MessageConsumer<Boolean> = vertx.eventBus().localConsumer("local.$replyAddress")
+                val pc = InstanceConnection(INSTANCE_ID, System.currentTimeMillis())
+                val consumer: MessageConsumer<Boolean> = vertx.eventBus().localConsumer(replyAddress)
 
                 val promise = Promise.promise<Void>()
                 consumer.handler {
@@ -105,25 +106,25 @@ open class ProcessorIntegrationTest {
                 }
 
                 FrameHelper.sendFrame(
-                    BridgeEventType.SEND.name.lowercase(), PlatformAddress.MARKER_CONNECTED.address,
+                    BridgeEventType.SEND.name.lowercase(), PlatformAddress.MARKER_CONNECTED,
                     replyAddress, JsonObject(), true, JsonObject.mapFrom(pc), tcpSocket
                 )
                 withTimeout(5000) {
                     promise.future().await()
                 }
 
-                vertx.eventBus().localConsumer<JsonObject>(SourceMarkerServices.Utilize.LIVE_INSTRUMENT) { resp ->
+                vertx.eventBus().localConsumer<JsonObject>(SourceServices.Utilize.LIVE_INSTRUMENT) { resp ->
                     val forwardAddress = resp.address()
                     val forwardMessage = resp.body()
                     val replyAddress = UUID.randomUUID().toString()
 
-                    if (log.isTraceEnabled) log.trace("Started listening at {}", "local.$replyAddress")
-                    val tempConsumer = vertx.eventBus().localConsumer<Any>("local.$replyAddress")
+                    if (log.isTraceEnabled) log.trace("Started listening at {}", replyAddress)
+                    val tempConsumer = vertx.eventBus().localConsumer<Any>(replyAddress)
                     tempConsumer.handler {
                         resp.reply(it.body())
                         tempConsumer.unregister()
 
-                        if (log.isTraceEnabled) log.trace("Finished listening at {}", "local.$replyAddress")
+                        if (log.isTraceEnabled) log.trace("Finished listening at {}", replyAddress)
                     }
 
                     val headers = JsonObject()
@@ -137,7 +138,8 @@ open class ProcessorIntegrationTest {
                 //register listener
                 FrameHelper.sendFrame(
                     BridgeEventType.REGISTER.name.lowercase(),
-                    SourceMarkerServices.Provide.LIVE_INSTRUMENT_SUBSCRIBER, JsonObject(), tcpSocket
+                    toLiveInstrumentSubscriberAddress("system"),
+                    JsonObject(), tcpSocket
                 )
             }
         }
