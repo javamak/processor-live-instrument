@@ -17,9 +17,11 @@ services:
     ports:
       - "5445:5445"
       - "5455:5455"
+      - "5107:5107"
     environment:
       - SPP_DISABLE_TLS=true
       - SPP_DISABLE_JWT=true
+      - JAVA_OPTS=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5107
   skywalking-oap:
     build:
       context: .
