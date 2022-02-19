@@ -79,9 +79,7 @@ class LiveInstrumentAnalysis : AnalysisListenerFactory, LogAnalysisListenerFacto
                     }
                 }
             }
-            val variable =
-                LiveVariable(varName, innerVars, scope = scope, liveClazz = liveClass, liveIdentity = liveIdentity)
-            return variable
+            return LiveVariable(varName, innerVars, scope = scope, liveClazz = liveClass, liveIdentity = liveIdentity)
         }
 
         fun transformRawBreakpointHit(bpData: JsonObject): LiveBreakpointHit {
