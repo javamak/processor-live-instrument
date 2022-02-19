@@ -79,7 +79,9 @@ class LiveInstrumentAnalysis : AnalysisListenerFactory, LogAnalysisListenerFacto
                     }
                 }
             }
-            return LiveVariable(varName, innerVars, scope = scope, liveClazz = liveClass, liveIdentity = liveIdentity)
+            val variable =
+                LiveVariable(varName, innerVars, scope = scope, liveClazz = liveClass, liveIdentity = liveIdentity)
+            return variable
         }
 
         fun transformRawBreakpointHit(bpData: JsonObject): LiveBreakpointHit {
@@ -102,6 +104,7 @@ class LiveInstrumentAnalysis : AnalysisListenerFactory, LogAnalysisListenerFacto
                         liveIdentity = outerVal.getString("@identity")
                     )
                 }
+                liveVar.presentation = ReflectiveValueFormatter.format(liveVar.liveClazz, liveVar);
                 variables.add(liveVar)
 
                 if (liveVar.name == "this") {
