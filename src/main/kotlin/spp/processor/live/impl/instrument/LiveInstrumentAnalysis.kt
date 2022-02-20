@@ -32,6 +32,7 @@ import org.apache.skywalking.oap.log.analyzer.provider.log.listener.LogAnalysisL
 import org.apache.skywalking.oap.server.analyzer.provider.AnalyzerModuleConfig
 import org.apache.skywalking.oap.server.analyzer.provider.trace.parser.listener.*
 import org.apache.skywalking.oap.server.library.module.ModuleManager
+import org.joor.Reflect
 import org.slf4j.LoggerFactory
 import spp.processor.InstrumentProcessor
 import spp.processor.InstrumentProcessor.liveInstrumentProcessor
@@ -50,8 +51,11 @@ import spp.protocol.instrument.event.LiveLogHit
 import spp.protocol.instrument.variable.LiveVariable
 import spp.protocol.instrument.variable.LiveVariableScope
 import spp.protocol.platform.ProcessorAddress
+import java.time.*
+import java.util.*
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
+import kotlin.reflect.jvm.jvmName
 
 class LiveInstrumentAnalysis : AnalysisListenerFactory, LogAnalysisListenerFactory {
 
@@ -65,21 +69,59 @@ class LiveInstrumentAnalysis : AnalysisListenerFactory, LogAnalysisListenerFacto
         const val STACK_TRACE = "spp.stack-trace:"
         const val BREAKPOINT = "spp.breakpoint:"
 
-        private fun toLiveVariable(varName: String, scope: LiveVariableScope?, varData: JsonObject): LiveVariable {
+        val supportedClasses = mapOf<String, () -> Reflect>(
+            Date::class.jvmName to { Reflect.on(Date()) },
+            Duration::class.jvmName to { Reflect.on(Duration.ofSeconds(1)) },
+            java.time.Instant::class.jvmName to { Reflect.on(java.time.Instant.now()) },
+            LocalDate::class.jvmName to { Reflect.on(LocalDate.now()) },
+            LocalTime::class.jvmName to { Reflect.on(LocalTime.now()) },
+            LocalDateTime::class.jvmName to { Reflect.on(LocalDateTime.now()) },
+            OffsetDateTime::class.jvmName to { Reflect.on(OffsetDateTime.now()) },
+            OffsetTime::class.jvmName to { Reflect.on(OffsetTime.now()) },
+            ZonedDateTime::class.jvmName to { Reflect.on(ZonedDateTime.now()) },
+            ZoneOffset::class.jvmName to { Reflect.on(ZoneOffset.ofTotalSeconds(0)) },
+            "java.time.ZoneRegion" to { Reflect.onClass("java.time.ZoneRegion").call("ofId", "GMT", false) }
+        )
+
+        private fun toLiveVariable(
+            varName: String,
+            scope: LiveVariableScope?,
+            varData: JsonObject
+        ): Pair<LiveVariable, Reflect?> {
             val liveClass = varData.getString("@class")
             val liveIdentity = varData.getString("@identity")
-
             val innerVars = mutableListOf<LiveVariable>()
+            val obj = supportedClasses[liveClass]?.invoke()
             varData.fieldNames().forEach {
                 if (!it.startsWith("@")) {
                     if (varData.get<Any>(it) is JsonObject) {
-                        innerVars.add(toLiveVariable(it, null, varData.getJsonObject(it)))
+                        val varPair = toLiveVariable(it, null, varData.getJsonObject(it))
+                        innerVars.add(varPair.first)
+                        obj?.let { _ -> obj.set(it, varPair.second) }
                     } else {
                         innerVars.add(LiveVariable(it, varData[it]))
+                        obj?.let { _ -> obj.set(it, asSmallestObject(varData[it])) }
                     }
                 }
             }
-            return LiveVariable(varName, innerVars, scope = scope, liveClazz = liveClass, liveIdentity = liveIdentity)
+
+            return Pair(
+                LiveVariable(
+                    varName, innerVars, scope = scope, liveClazz = liveClass,
+                    liveIdentity = liveIdentity, presentation = obj?.toString()
+                ), obj
+            )
+        }
+
+        private fun asSmallestObject(value: Any?): Any? {
+            if (value is Number) {
+                when (value.toLong()) {
+                    in Byte.MIN_VALUE..Byte.MAX_VALUE -> return value.toByte()
+                    in Int.MIN_VALUE..Int.MAX_VALUE -> return value.toInt()
+                    in Long.MIN_VALUE..Long.MAX_VALUE -> return value.toLong()
+                }
+            }
+            return value
         }
 
         fun transformRawBreakpointHit(bpData: JsonObject): LiveBreakpointHit {
@@ -93,16 +135,20 @@ class LiveInstrumentAnalysis : AnalysisListenerFactory, LogAnalysisListenerFacto
                 val scope = LiveVariableScope.valueOf(varData.getString("scope"))
 
                 val liveVar = if (outerVal.get<Any>(varName) is JsonObject) {
-                    toLiveVariable(varName, scope, outerVal.getJsonObject(varName))
+                    toLiveVariable(varName, scope, outerVal.getJsonObject(varName)).first
                 } else {
+                    val liveClazz = outerVal.getString("@class")
+                    val presentation =
+                        if (liveClazz !in supportedClasses) null else outerVal[varName]
                     LiveVariable(
                         varName, outerVal[varName],
                         scope = scope,
-                        liveClazz = outerVal.getString("@class"),
-                        liveIdentity = outerVal.getString("@identity")
+                        liveClazz = liveClazz,
+                        liveIdentity = outerVal.getString("@identity"),
+                        presentation = presentation
                     )
                 }
-                liveVar.presentation = ReflectiveValueFormatter.format(liveVar.liveClazz, liveVar);
+                //liveVar = liveVar.copy(presentation = ReflectiveValueFormatter.format(liveVar.liveClazz, liveVar))
                 variables.add(liveVar)
 
                 if (liveVar.name == "this") {
